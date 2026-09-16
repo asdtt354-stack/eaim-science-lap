@@ -12,7 +12,7 @@
     <style>
         :root { --main-color: #2ecc71; --bg-dark: #050508; --accent: #00d4ff; }
         * { box-sizing: border-box; }
-        body { margin: 0; background: var(--bg-dark); color: white; font-family: 'Pretendard', sans-serif; display: flex; flex-direction: row; height: 100vh; overflow: hidden; }
+        body { margin: 0; background: var(--bg-dark); color: white; font-family: 'Pretendard', sans-serif; display: flex; flex-direction: row; height: 100vh; overflow: hidden; word-break: keep-all; }
 #mainApp{ width:100%; height:100%; min-height:0; }
 
         #viewer-section { flex: 6; position: relative; background: radial-gradient(circle, #0a1020 0%, #000 100%); min-height: 300px; transition: background 0.8s ease; }
@@ -37,6 +37,10 @@
 
         #moon-phase-control { display: none; margin-top: 10px; }
         #phase-name { text-align: center; color: #fff; font-weight: bold; margin-top: 5px; }
+        #phase-age { text-align: center; color: #9ab; font-size: 0.8em; margin-top: 2px; }
+        .phase-caption { font-size: 0.72em; color: #888; line-height: 1.5; margin: 8px 0 0; }
+        .btn-today { margin-top: 8px; width: 100%; padding: 8px; background: transparent; border: 1px solid #555; color: #ccc; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 0.8em; }
+        .btn-today:hover { background: #222; color: #fff; }
 
         #sun-warning { display: none; margin-top: 10px; color: #ffcc00; font-size: 0.85em; font-weight: bold; background: rgba(255,204,0,0.1); padding: 10px; border-radius: 5px; border: 1px solid #ffcc00; text-align: center; }
 
@@ -269,8 +273,11 @@
 
         <div id="moon-phase-control">
             <label style="margin-top: 15px;">🌗 달 위상 시뮬레이션</label>
-            <input type="range" id="moon-slider" min="0" max="6.28" step="0.05" value="0" oninput="updateMoonPhase(this.value)">
-            <div id="phase-name">신월 (New Moon)</div>
+            <input type="range" id="moon-slider" min="0" max="6.283" step="0.02" value="0" oninput="updateMoonPhase(this.value)" aria-label="달 위상 조절">
+            <div id="phase-name">삭 (신월)</div>
+            <div id="phase-age"></div>
+            <button type="button" class="btn-today" onclick="setMoonFromDate()">📅 관측 날짜의 달 모양으로 맞추기</button>
+            <p class="phase-caption">우리나라(북반구)에서 본 모습이에요. 관측 날짜를 바꾸면 그날 밤 달 모양으로 바뀌어요. 평균 주기로 계산해서 실제와 하루쯤 차이 날 수 있어요. 달은 늘 같은 면을 지구로 향해서 스스로 돌려 보이지 않아요.</p>
         </div>
 
         <div id="sun-warning">⚠️ 망원경 태양 특수 필터 장착 완료<br><small>(H-alpha 필터 사용)</small></div>
@@ -745,7 +752,7 @@
         function animate() {
             requestAnimationFrame(animate);
             if (currentMesh && !isDragging) {
-                currentMesh.rotation.y += isSun ? 0.001 : 0.002;
+                if (!isMoon) currentMesh.rotation.y += isSun ? 0.001 : 0.002;   // 달은 늘 같은 면을 보여줌
             }
             renderer.render(scene, camera);
         }
@@ -898,7 +905,10 @@
         }
 
         directionalLight.position.set(5, 3, 5);
-        if(isMoon) document.getElementById('moon-slider').value = 0;
+        if(isMoon) {
+            currentMesh.rotation.set(0, -Math.PI / 2, 0);   // 지구에서 보이는 달의 앞면
+            setMoonFromDate();
+        }
     }
 
     function updateSunFeatures() {
@@ -917,11 +927,52 @@
         loadPlanet(target);
     }
 
+    // ── 🌗 달 위상 ──
+    // 슬라이더 값 0 → 삭(신월), π/2 → 상현달, π → 보름달, 3π/2 → 하현달
+    // 카메라(지구)는 +z 쪽에 있으므로, 햇빛이 달 뒤(−z)에서 오면 어두운 면이 보인다.
+    const SYNODIC_MONTH = 29.530588853;
+    const REF_NEW_MOON = Date.UTC(2000, 0, 6, 18, 14);   // 기준 삭: 2000년 1월 6일 18:14(UTC)
+    const MOON_PHASES = [
+        '삭 (신월)', '초승달', '상현달', '상현달과 보름달 사이',
+        '망 (보름달)', '보름달과 하현달 사이', '하현달', '그믐달'
+    ];
+    let currentPhaseName = MOON_PHASES[0];
+
     function updateMoonPhase(val) {
-        directionalLight.position.set(Math.cos(val)*5, 0, Math.sin(val)*5);
-        const phases = ["신월", "초승달", "상현달", "보름달", "하현달", "그믐달"];
-        document.getElementById('phase-name').innerText = phases[Math.floor((val / 6.28) * 6) % 6];
+        val = parseFloat(val);
+        const TWO_PI = Math.PI * 2;
+        directionalLight.position.set(Math.sin(val) * 5, 0, -Math.cos(val) * 5);
+        const idx = Math.round((val / TWO_PI) * 8) % 8;
+        currentPhaseName = MOON_PHASES[idx];
+        document.getElementById('phase-name').innerText = currentPhaseName;
+        const age = (val / TWO_PI) * SYNODIC_MONTH;
+        document.getElementById('phase-age').innerText = `월령 약 ${age.toFixed(1)}일 · 음력 약 ${Math.floor(age) + 1}일`;
     }
+
+    function moonAgeOnDate(dateStr) {
+        // 우리나라 밤 9시(KST) 기준
+        const t = new Date(dateStr + 'T21:00:00+09:00').getTime();
+        if (isNaN(t)) return 0;
+        const days = (t - REF_NEW_MOON) / 86400000;
+        return ((days % SYNODIC_MONTH) + SYNODIC_MONTH) % SYNODIC_MONTH;
+    }
+
+    function setMoonFromDate() {
+        const dateStr = document.getElementById('obs-date').value;
+        const val = (moonAgeOnDate(dateStr) / SYNODIC_MONTH) * Math.PI * 2;
+        document.getElementById('moon-slider').value = val.toFixed(3);
+        updateMoonPhase(val);
+    }
+
+    (function initObsDate() {
+        const d = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const input = document.getElementById('obs-date');
+        if (input) {
+            input.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+            input.addEventListener('change', () => { if (isMoon) setMoonFromDate(); });
+        }
+    })();
 
     async function submitLog() {
         const logText = document.getElementById('student-log').value;
@@ -935,7 +986,14 @@
         respDiv.style.display = 'block';
         respDiv.innerHTML = "📡 제미나이 2.5 플래시 엔진이 기록을 분석 중입니다...";
 
-        const prompt = `당신은 에임 천문대의 과학 교사입니다. 학생이 '${targetName}'을 관측하고 다음 일지를 썼습니다: "${logText}"\n학생의 관찰력에 대해 따뜻하게 칭찬하고, 해당 천체의 과학적 특징을 1~2문장으로 보완 설명해주세요.`;
+        const obsDate = document.getElementById('obs-date').value;
+        const obsLoc = document.getElementById('obs-location').value;
+        let context = `관측 날짜: ${obsDate}, 관측소: ${obsLoc}.`;
+        if (isMoon) {
+            const age = (parseFloat(document.getElementById('moon-slider').value) / (Math.PI * 2)) * SYNODIC_MONTH;
+            context += ` 학생 화면의 달은 '${currentPhaseName}'(월령 약 ${age.toFixed(1)}일)이고, 북반구에서 본 모습이다. 상현달은 오른쪽, 하현달은 왼쪽이 밝다.`;
+        }
+        const prompt = `당신은 에임 천문대의 중학교 과학 교사입니다. 학생이 '${targetName}'을 관측하고 다음 일지를 썼습니다: "${logText}"\n${context}\n학생의 관찰력에 대해 따뜻하게 칭찬하고, 해당 천체의 과학적 특징을 1~2문장으로 보완 설명해주세요. 학생 설명 중 과학적으로 틀린 부분이 있으면 칭찬하지 말고 부드럽게 바로잡아주세요.`;
 
         try {
             const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {

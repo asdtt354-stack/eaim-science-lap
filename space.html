@@ -12,7 +12,13 @@
 <style>
 :root { --main-color: #00d4ff; --bg-dark: #020205; --accent: #2ecc71; }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg-dark); color: white; font-family: 'Pretendard', sans-serif; display: flex; flex-direction: row; height: 100vh; overflow: hidden; }
+body { margin: 0; background: var(--bg-dark); color: white; font-family: 'Pretendard', sans-serif; display: flex; flex-direction: row; height: 100vh; overflow: hidden; word-break: keep-all; }
+.mode-toggle { display: flex; gap: 6px; margin-bottom: 6px; }
+.mode-btn { flex: 1; background: #1a1a24; border: 1.5px solid #444; color: #ccc; border-radius: 8px; padding: 8px 4px; font-size: 0.74em; font-weight: bold; cursor: pointer; font-family: inherit; }
+.mode-btn.active { border-color: var(--main-color); background: rgba(0,212,255,0.12); color: var(--main-color); }
+.mode-btn:focus-visible, .tele-type-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.panel-caption { font-size: 0.68em; color: #999; line-height: 1.45; margin: 4px 0 0; }
+.elapsed-readout { font-size: 0.72em; color: var(--main-color); margin-top: 6px; font-weight: bold; }
 #mainApp{ width:100%; height:100%; min-height:0; }
 
 #viewer-section { flex: 7; position: relative; min-height: 300px; }
@@ -289,12 +295,22 @@ textarea { width: 100%; height: 80px; background: #1a1a24; color: white; border:
     <div class="slider-group">
       <label class="label-speed">⏱️ 시간 가속기 (공전/자전 속도)</label>
       <input type="range" id="speed-slider" class="slider-speed" min="0" max="10" step="0.1" value="1">
-      <div class="speed-labels"><span>정지(0x)</span><span>초고속(10x)</span></div>
+      <div class="speed-labels"><span>정지(0x)</span><span id="speed-max-label">초고속(10x)</span></div>
+      <div class="elapsed-readout" id="elapsed-readout">지구 공전 0.0바퀴</div>
+    </div>
+    <div class="slider-group">
+      <label class="label-speed">🪐 공전 빠르기 보기</label>
+      <div class="mode-toggle">
+        <button type="button" class="mode-btn active" data-mode="display" onclick="setOrbitMode('display')">👀 차이 잘 보이게</button>
+        <button type="button" class="mode-btn" data-mode="real" onclick="setOrbitMode('real')">📏 실제 비율</button>
+      </div>
+      <p class="panel-caption" id="mode-caption"></p>
     </div>
     <div class="slider-group">
       <label class="label-size">🔍 행성 돋보기 (크기 확대)</label>
       <input type="range" id="size-slider" class="slider-size" min="1" max="15" step="0.5" value="3">
-      <div class="speed-labels"><span>실제 궤도 비율</span><span>최대 확대(15x)</span></div>
+      <div class="speed-labels"><span>기본 크기(1x)</span><span>최대 확대(15x)</span></div>
+      <p class="panel-caption">화면 속 거리와 크기는 한 화면에 담으려고 줄인 것이라 실제 비율이 아니에요.</p>
     </div>
     <div class="slider-group" id="telescope-group">
       <label class="label-telescope" style="display:flex;align-items:center;gap:6px">
@@ -789,23 +805,60 @@ const textures = {
 };
 
 // 🌙 달 · ☄️ 소행성대 · ☄️ 혜성 (행성 외 천체)
-const moonData = { name: "달", size: 2.2, dist: 14 };
+const moonData = { name: "달", size: 2.2, dist: 14, periodDays: 27.32 };
 const beltInner = 360, beltOuter = 440, ASTEROID_COUNT = 70;
-const cometA = 900, cometB = 250;
+// 혜성: 태양이 타원의 중심이 아니라 한 초점에 오도록 배치 (핼리 혜성처럼 길쭉한 궤도)
+const cometA = 820, cometB = 380;
+const cometE = Math.sqrt(1 - (cometB*cometB)/(cometA*cometA));
+const COMET_REAL_YEARS = 76, COMET_DISPLAY_YEARS = 6;
 let moonMesh = null, moonAngle = 0;
 let asteroids = [];
-let comet = null, cometTail = null, cometAngle = 0;
+let comet = null, cometTail = null, cometMeanAnomaly = 0;
 
+// periodDays: 실제 공전 주기(일), au: 태양까지 평균 거리, rotHours: 자전 주기(시간), tilt: 자전축 기울기(도)
+// displaySpeed: '차이 잘 보이게' 모드에서 쓰는 빠르기 (바깥 행성을 실제보다 빠르게 돌림)
 const planetsData = {
-  mercury: { name: "수성", dist: 120, size: 4, speed: 0.04, color: 0xaaaaaa, texture: textures.mercury },
-  venus: { name: "금성", dist: 180, size: 7, speed: 0.015, color: 0xffcc33, texture: textures.venus },
-  earth: { name: "지구", dist: 250, size: 8, speed: 0.01, color: 0x2233ff, texture: textures.earth },
-  mars: { name: "화성", dist: 320, size: 5, speed: 0.008, color: 0xff3300, texture: textures.mars },
-  jupiter: { name: "목성", dist: 480, size: 22, speed: 0.004, color: 0xffaa88, texture: textures.jupiter },
-  saturn: { name: "토성", dist: 650, size: 18, speed: 0.002, color: 0xffdd88, texture: textures.saturn },
-  uranus: { name: "천왕성", dist: 850, size: 14, speed: 0.001, color: 0x66ccff, texture: textures.uranus },
-  neptune: { name: "해왕성", dist: 1050, size: 13, speed: 0.0008, color: 0x3333ff, texture: textures.neptune }
+  mercury: { name: "수성", dist: 120, size: 4, displaySpeed: 0.04, periodDays: 87.97, au: 0.39, rotHours: 1407.6, tilt: 0.03, color: 0xaaaaaa, texture: textures.mercury },
+  venus: { name: "금성", dist: 180, size: 7, displaySpeed: 0.015, periodDays: 224.70, au: 0.72, rotHours: 5832.5, tilt: 177.4, color: 0xffcc33, texture: textures.venus },
+  earth: { name: "지구", dist: 250, size: 8, displaySpeed: 0.01, periodDays: 365.26, au: 1.00, rotHours: 23.93, tilt: 23.4, color: 0x2233ff, texture: textures.earth },
+  mars: { name: "화성", dist: 320, size: 5, displaySpeed: 0.008, periodDays: 686.98, au: 1.52, rotHours: 24.62, tilt: 25.2, color: 0xff3300, texture: textures.mars },
+  jupiter: { name: "목성", dist: 480, size: 22, displaySpeed: 0.004, periodDays: 4332.59, au: 5.20, rotHours: 9.93, tilt: 3.1, color: 0xffaa88, texture: textures.jupiter },
+  saturn: { name: "토성", dist: 650, size: 18, displaySpeed: 0.002, periodDays: 10759.22, au: 9.58, rotHours: 10.66, tilt: 26.7, color: 0xffdd88, texture: textures.saturn },
+  uranus: { name: "천왕성", dist: 850, size: 14, displaySpeed: 0.001, periodDays: 30688.5, au: 19.2, rotHours: 17.24, tilt: 97.8, color: 0x66ccff, texture: textures.uranus },
+  neptune: { name: "해왕성", dist: 1050, size: 13, displaySpeed: 0.0008, periodDays: 60182, au: 30.05, rotHours: 16.11, tilt: 28.3, color: 0x3333ff, texture: textures.neptune }
 };
+// 실제 비율 빠르기 = 지구 빠르기 × (지구 공전 주기 ÷ 행성 공전 주기)
+const EARTH_SPEED = 0.01, EARTH_PERIOD = 365.26;
+Object.values(planetsData).forEach(p=>{ p.realSpeed = EARTH_SPEED * EARTH_PERIOD / p.periodDays; });
+
+let orbitMode = 'display';
+let elapsedEarthOrbits = 0;
+const MODE_INFO = {
+  display: { maxSpeed: 10, caption: '행성끼리 빠르기 차이를 한눈에 보도록 바깥 행성을 실제보다 빠르게 돌려요. 순서는 맞지만 비율은 달라요.' },
+  real: { maxSpeed: 100, caption: '실제 공전 주기 비율대로 돌아요. 지구가 한 바퀴 돌 때 해왕성은 약 165분의 1바퀴만 움직여요. 시간 가속을 높여 보세요.' }
+};
+function orbitSpeed(p){ return orbitMode === 'real' ? p.realSpeed : p.displaySpeed; }
+function setOrbitMode(mode){
+  orbitMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.toggle('active', b.dataset.mode===mode));
+  const info = MODE_INFO[mode];
+  const slider = document.getElementById('speed-slider');
+  if(slider){
+    slider.max = info.maxSpeed;
+    if(parseFloat(slider.value) > info.maxSpeed) slider.value = info.maxSpeed;
+  }
+  const maxLabel = document.getElementById('speed-max-label');
+  if(maxLabel) maxLabel.textContent = `초고속(${info.maxSpeed}x)`;
+  const cap = document.getElementById('mode-caption');
+  if(cap) cap.textContent = info.caption;
+}
+function formatPeriod(days){
+  return days < 365 ? `약 ${Math.round(days)}일` : `약 ${(days/365.26).toFixed(1)}년`;
+}
+function planetFactLine(p){
+  return `${p.name}: 태양까지 평균 거리 ${p.au}AU, 공전 주기 ${formatPeriod(p.periodDays)}`;
+}
+setOrbitMode('display');
 
 const planetSelA = document.getElementById('planet-a');
 const planetSelB = document.getElementById('planet-b');
@@ -980,6 +1033,9 @@ function initThreeScene(){
       emissiveIntensity: 0.3
     });
     const m = new THREE.Mesh(new THREE.SphereGeometry(p.size, 64, 64), mat);
+    m.rotation.order = 'ZXY';            // 자전(Y) 먼저, 그다음 자전축 기울기(Z)
+    m.rotation.z = THREE.MathUtils.degToRad(p.tilt);
+    m.userData.angle = 0;
     meshes[key] = m;
     scene.add(m);
 
@@ -990,7 +1046,7 @@ function initThreeScene(){
         side: THREE.DoubleSide, transparent: true, opacity: 0.8
       });
       const ring = new THREE.Mesh(ringGeom, ringMat);
-      ring.rotation.x = Math.PI / 2.5;
+      ring.rotation.x = Math.PI / 2;      // 고리는 토성 적도면에 놓이고, 기울기는 토성 자전축을 따라감
       m.add(ring);
     }
 
@@ -1001,10 +1057,10 @@ function initThreeScene(){
     scene.add(orbit);
   });
 
-  // 🌙 달 (지구의 자식으로 붙여 지구 기준 공전)
+  // 🌙 달 (지구 위치를 따라가며 공전 — 지구 자전에 끌려 돌지 않도록 따로 둠)
   const moonMat = new THREE.MeshStandardMaterial({ map: loader.load(textures.moon), roughness: 0.9 });
   moonMesh = new THREE.Mesh(new THREE.SphereGeometry(moonData.size, 32, 32), moonMat);
-  if(meshes.earth) meshes.earth.add(moonMesh);
+  scene.add(moonMesh);
 
   // ☄️ 소행성대
   for(let i=0; i<ASTEROID_COUNT; i++){
@@ -1014,7 +1070,10 @@ function initThreeScene(){
     const rockMat = new THREE.MeshStandardMaterial({ color: 0x8b7d6b, roughness: 1 });
     const rock = new THREE.Mesh(rockGeo, rockMat);
     rock.position.set(Math.cos(ang) * beltR, (Math.random()-0.5) * 8, Math.sin(ang) * beltR);
-    rock.userData.angle = ang; rock.userData.radius = beltR; rock.userData.speed = 0.0025 + Math.random() * 0.002;
+    rock.userData.angle = ang; rock.userData.radius = beltR;
+    const t = (beltR - beltInner) / (beltOuter - beltInner);   // 바깥쪽일수록 느리게
+    rock.userData.realYears = 3.3 + t * 2.7;
+    rock.userData.displaySpeed = 0.007 - t * 0.002;
     scene.add(rock);
     asteroids.push(rock);
   }
@@ -1042,6 +1101,16 @@ function initThreeScene(){
   cometTail = new THREE.Sprite(tailMat);
   cometTail.scale.set(40, 14, 1);
   scene.add(cometTail);
+  const cometOrbitPts = [];
+  for(let i=0; i<=256; i++){
+    const E = i / 256 * Math.PI * 2;
+    cometOrbitPts.push(new THREE.Vector3(cometA * (Math.cos(E) - cometE), Math.sin(E) * 12, cometB * Math.sin(E)));
+  }
+  const cometOrbit = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(cometOrbitPts),
+    new THREE.LineBasicMaterial({ color: 0x88ccff, transparent: true, opacity: 0.18 })
+  );
+  scene.add(cometOrbit);
 
   camera.position.set(0, cameraHeight, cameraRadius);
   camera.lookAt(0, 0, 0);
@@ -1078,55 +1147,80 @@ function initThreeScene(){
     }
   }, {passive:false});
 
-  let time = 0;
+  // 지구 기준 한 프레임 공전각 = 0.005 × 가속 × 지구빠르기 × 20
+  const ORBIT_BASE = 0.005 * 20;
+  function solveKepler(M, e){
+    let E = e < 0.8 ? M : Math.PI;
+    for(let i=0; i<10; i++) E -= (E - e*Math.sin(E) - M) / (1 - e*Math.cos(E));
+    return E;
+  }
   function animate(){
     requestAnimationFrame(animate);
     const speedMultiplier = parseFloat(document.getElementById('speed-slider').value);
-    time += 0.005 * speedMultiplier;
+    const spinMultiplier = Math.min(speedMultiplier, 10);
     const sizeMultiplier = parseFloat(document.getElementById('size-slider').value);
-    starField.rotation.y += 0.0005 * speedMultiplier;
+    const earthStep = ORBIT_BASE * speedMultiplier * EARTH_SPEED;   // 지구가 이번 프레임에 도는 각도
+    starField.rotation.y += 0.0005 * spinMultiplier;
 
     Object.keys(meshes).forEach(key=>{
       const p = planetsData[key], m = meshes[key];
-      m.position.x = Math.cos(time * p.speed * 20) * p.dist;
-      m.position.z = Math.sin(time * p.speed * 20) * p.dist;
-      m.rotation.y += 0.02 * speedMultiplier;
+      m.userData.angle += ORBIT_BASE * speedMultiplier * orbitSpeed(p);
+      m.position.x = Math.cos(m.userData.angle) * p.dist;
+      m.position.z = Math.sin(m.userData.angle) * p.dist;
+      // 자전: 실제 자전 주기 비율 (지구 기준)
+      m.rotation.y += 0.02 * spinMultiplier * (23.93 / p.rotHours);
       m.scale.set(sizeMultiplier, sizeMultiplier, sizeMultiplier);
     });
 
-    const sunScale = 1 + (sizeMultiplier - 1) * 0.2;
-    sun.rotation.y += 0.0012 * speedMultiplier;
+    elapsedEarthOrbits += earthStep / (Math.PI * 2);
+    const readout = document.getElementById('elapsed-readout');
+    if(readout) readout.textContent = `지구 공전 ${elapsedEarthOrbits.toFixed(1)}바퀴`;
+
+    // 태양은 조금만 커지게 (수성 궤도를 덮지 않도록 상한)
+    const sunScale = Math.min(1 + (sizeMultiplier - 1) * 0.2, 1.5);
+    sun.rotation.y += 0.0012 * spinMultiplier;
     sun.scale.set(sunScale, sunScale, sunScale);
     sunGlow.scale.set(sunScale, sunScale, sunScale);
 
-    // 🌙 달 공전 (지구 기준 로컬 좌표)
-    if(moonMesh){
-      moonAngle += 0.06 * speedMultiplier;
-      moonMesh.position.x = Math.cos(moonAngle) * moonData.dist;
-      moonMesh.position.z = Math.sin(moonAngle) * moonData.dist;
+    // 🌙 달 공전 (지구를 따라다니며 공전)
+    if(moonMesh && meshes.earth){
+      const moonFactor = orbitMode === 'real' ? (EARTH_PERIOD / moonData.periodDays) : 5;
+      moonAngle += earthStep * moonFactor;
+      const md = moonData.dist * sizeMultiplier;
+      moonMesh.position.set(
+        meshes.earth.position.x + Math.cos(moonAngle) * md,
+        0,
+        meshes.earth.position.z + Math.sin(moonAngle) * md
+      );
+      moonMesh.scale.set(sizeMultiplier, sizeMultiplier, sizeMultiplier);
     }
 
-    // ☄️ 소행성대 공전
+    // ☄️ 소행성대 공전 (화성과 목성 사이의 빠르기)
     asteroids.forEach(rock=>{
-      rock.userData.angle += rock.userData.speed * speedMultiplier * 0.02;
+      const step = orbitMode === 'real'
+        ? earthStep / rock.userData.realYears
+        : ORBIT_BASE * speedMultiplier * rock.userData.displaySpeed;
+      rock.userData.angle += step;
       rock.position.x = Math.cos(rock.userData.angle) * rock.userData.radius;
       rock.position.z = Math.sin(rock.userData.angle) * rock.userData.radius;
-      rock.rotation.x += 0.01 * speedMultiplier;
-      rock.rotation.y += 0.015 * speedMultiplier;
+      rock.rotation.x += 0.01 * spinMultiplier;
+      rock.rotation.y += 0.015 * spinMultiplier;
       rock.scale.set(sizeMultiplier, sizeMultiplier, sizeMultiplier);
     });
 
-    // ☄️ 혜성 공전 + 태양 반대 방향 꼬리
+    // ☄️ 혜성: 태양이 초점, 케플러 법칙대로 태양 가까이에서 빨라짐 + 꼬리는 태양 반대쪽
     if(comet){
-      cometAngle += 0.0035 * speedMultiplier;
-      comet.position.set(Math.cos(cometAngle) * cometA, Math.sin(cometAngle * 0.5) * 20, Math.sin(cometAngle) * cometB);
+      const years = orbitMode === 'real' ? COMET_REAL_YEARS : COMET_DISPLAY_YEARS;
+      cometMeanAnomaly = (cometMeanAnomaly + earthStep / years) % (Math.PI * 2);
+      const E = solveKepler(cometMeanAnomaly, cometE);
+      comet.position.set(cometA * (Math.cos(E) - cometE), Math.sin(E) * 12, cometB * Math.sin(E));
       comet.scale.set(sizeMultiplier, sizeMultiplier, sizeMultiplier);
       const distFromSun = comet.position.length();
       const away = comet.position.clone().normalize();
-      const tailLen = Math.max(8, 60 - distFromSun * 0.05);
+      const tailLen = Math.max(6, 160 * (1 - distFromSun / 900));
       cometTail.position.copy(comet.position).add(away.multiplyScalar(tailLen * 0.5));
-      cometTail.scale.set(tailLen, tailLen * 0.35, 1);
-      cometTail.material.opacity = Math.max(0.15, Math.min(0.7, 1 - distFromSun / 700));
+      cometTail.scale.set(tailLen, Math.max(4, tailLen * 0.3), 1);
+      cometTail.material.opacity = Math.max(0.05, Math.min(0.75, 1 - distFromSun / 800));
     }
 
     if(telescopeTarget){
@@ -1200,15 +1294,20 @@ async function generateMission(){
   document.getElementById('answer-area').style.display = 'none';
   document.getElementById('feedback-box').style.display = 'none';
 
+  const modeText = orbitMode === 'real'
+    ? '공전 주기를 실제 비율대로 보여 주는 모드'
+    : '차이가 잘 보이도록 바깥 행성을 실제보다 빠르게 돌리는 모드(순서는 맞지만 비율은 실제와 다름)';
   const prompt = `중학교 과학 교사로서, 학생이 태양계 시뮬레이터에서 "${a.name}"과 "${b.name}"을 관찰하고 있어.
-현재 시간 가속 배율은 ${speedMultiplier}배, 행성 크기 확대는 ${sizeMultiplier}배야.
-${a.name}의 실제 공전 속도 비례값은 ${a.speed}, ${b.name}은 ${b.speed}이야 (숫자가 클수록 빠름).
+화면: ${modeText}, 시간 가속 ${speedMultiplier}배, 행성 크기 확대 ${sizeMultiplier}배. 화면 속 거리와 크기는 실제 비율이 아니야.
+정확한 자료
+- ${planetFactLine(a)}
+- ${planetFactLine(b)}
 이 둘의 공전 속도 차이를 관찰하도록 유도하는 질문을 딱 1개, 2문장 이내로 만들어줘.
-정답을 알려주지 말고, 학생이 직접 이유를 생각하게 만드는 질문으로 써줘.`;
+정답을 알려주지 말고, 학생이 직접 이유를 생각하게 만드는 질문으로 써줘. 위 자료와 다른 수치는 쓰지 마.`;
 
   try{
     const q = await callGemini(prompt, 400);
-    currentMission = { a: a.name, b: b.name, question: q, speedMultiplier, sizeMultiplier };
+    currentMission = { a: a.name, b: b.name, facts: [planetFactLine(a), planetFactLine(b)], mode: orbitMode, question: q, speedMultiplier, sizeMultiplier };
     const card = document.getElementById('question-card');
     card.textContent = q;
     card.style.display = 'block';
@@ -1232,9 +1331,12 @@ async function submitAnswer(){
   const prompt = `중학교 과학 교사로서 학생의 관측 답변을 따뜻하게 첨삭해줘.
 질문: ${currentMission.question}
 비교 대상: ${currentMission.a} vs ${currentMission.b}
+정확한 자료
+- ${currentMission.facts.join('\n- ')}
+참고: 태양에서 멀수록 공전 주기가 길고, 공전 궤도를 도는 빠르기도 느려진다.
 학생 답변: ${answer}
 
-과학적으로 맞는 부분은 칭찬하고, 부족한 부분은 힌트로 보완해줘. 3~4문장, 한국어로.`;
+과학적으로 맞는 부분은 칭찬하고, 부족한 부분은 힌트로 보완해줘. 위 자료와 어긋나는 학생 설명은 칭찬하지 말고 부드럽게 바로잡아줘. 3~4문장, 한국어로.`;
 
   try{
     const feedback = await callGemini(prompt, 600);
