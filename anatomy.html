@@ -62,8 +62,6 @@ body { margin: 0; background: var(--bg-dark); color: white; font-family: 'Preten
 #system-explain-box { display:none; background: #141416; border: 1px solid #2a2a2c; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
 #system-explain-title { font-weight: 800; font-size: 0.95em; margin-bottom: 6px; color: var(--accent); }
 #system-explain-text { font-size: 0.8em; line-height: 1.6; color: #ddd; margin-bottom: 8px; white-space: pre-line; }
-#system-explain-voice-btn { border: 1.5px solid var(--accent); background: rgba(168,85,247,0.12); color: #d8b4fe; border-radius: 7px; padding: 6px 10px; font-size: 0.74em; font-weight: 700; cursor: pointer; margin-right: 6px; }
-#system-explain-voice-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 #system-explain-stop-btn { border: 1.5px solid #666; background: rgba(255,255,255,0.06); color: #ccc; border-radius: 7px; padding: 6px 10px; font-size: 0.74em; font-weight: 700; cursor: pointer; }
 
 #log-section {
@@ -90,6 +88,8 @@ body { margin: 0; background: var(--bg-dark); color: white; font-family: 'Preten
 textarea { width: 100%; height: 80px; background: #1a1a1c; color: white; border: 1px solid #444; border-radius: 8px; padding: 10px; margin-bottom: 10px; font-size: 0.88em; box-sizing: border-box; resize: none; font-family: inherit; }
 .feedback-box { margin-top: 12px; background: rgba(244, 63, 94, 0.08); padding: 12px; border-radius: 8px; font-size: 0.86em; line-height: 1.6; border: 1px solid rgba(244, 63, 94, 0.3); display: none; }
 
+/* 손님 화면에서 잠긴 버튼 (2026-09-19) */
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; filter: grayscale(0.4); }
 #log-list { margin-top: 8px; }
 .log-item { background: #111; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid var(--accent); font-size: 0.78em; line-height: 1.5; }
 .log-item .log-meta { color: #888; font-size: 0.85em; margin-bottom: 3px; }
@@ -320,8 +320,6 @@ select { width: 100%; padding: 9px; background: #222; color: white; border: 1px 
     <div id="system-explain-box" style="display:none">
       <div id="system-explain-title"></div>
       <div id="system-explain-text"></div>
-      <button type="button" id="system-explain-voice-btn" onclick="replaySystemVoice()">🔊 다시 듣기</button>
-      <button type="button" id="system-explain-stop-btn" onclick="stopSystemVoice()">⏹ 정지</button>
     </div>
 
     <div id="organ-info-box">
@@ -348,7 +346,7 @@ select { width: 100%; padding: 9px; background: #222; color: white; border: 1px 
   <div class="mission-box">
     <label id="mission-box-label">🔬 지금 상태로 질문받기</label>
     <button class="btn-primary" onclick="generateAnatomyMission()" id="anatomy-mission-btn" disabled>🔬 탐구 질문 받기</button>
-    <p style="font-size:0.68em;color:#888;margin-top:6px;text-align:center">※ 선생님이 설정한 API 키로 작동해요. 오류 발생 시 선생님께 문의하세요.</p>
+    <p class="qr-notice" style="display:none;font-size:0.72em;color:#888;margin:6px 0 0;text-align:center;line-height:1.5">선생님이 주신 QR이나 링크로 들어오면<br>AI 탐구 질문을 받을 수 있어요</p>
   </div>
 
   <div class="question-card" id="anatomy-question-card"></div>
@@ -667,60 +665,46 @@ function pickMutoMood(i){
   const box = document.getElementById('mutoEncourageBox');
   if(box){ box.style.display='block'; box.textContent = mood.msg; }
   const btn = document.getElementById('mutoContinueBtn'); if(btn) btn.style.display='block';
-  speakMuto(mood.msg);
+  // 뮤토 음성은 2026-09-19에 제거함(재생이 늘 늦게 나옴) — 되돌리지 않기
 }
 function closeMutoMoodAndEnter(){
   document.getElementById('mutoMoodOverlay').style.display='none';
   if(afterMutoMoodFn) afterMutoMoodFn();
 }
-let currentAudioEl = null;
-async function speakMuto(text){
-  try{
-    const key = (settings.apiKey||'').trim();
-    if(!key) return;
-    if(currentAudioEl){
-      try{ currentAudioEl.pause(); currentAudioEl.currentTime = 0; }catch(e){}
-      currentAudioEl = null;
-    }
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${key}`;
-    const res = await fetch(url, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        contents: [{ parts: [{ text }] }],
-        generationConfig: {
-          responseModalities: ["AUDIO"],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } } }
-        }
-      })
-    });
-    const data = await res.json();
-    if(data.error){ console.warn('TTS API 오류', data.error); return; }
-    const part = data?.candidates?.[0]?.content?.parts?.find(p=>p.inlineData);
-    if(!part){ console.warn('TTS 응답에 오디오 데이터가 없어요', data); return; }
-    const wavUrl = mutoPcmToWavUrl(part.inlineData.data);
-    const audio = new Audio(wavUrl);
-    currentAudioEl = audio;
-    audio.addEventListener('ended', ()=>{ if(currentAudioEl === audio) currentAudioEl = null; });
-    try{ await audio.play(); }catch(playErr){ console.warn('오디오 재생 차단됨', playErr); }
-  }catch(e){ console.warn('뮤토 음성 재생 실패', e); }
+// ══════════════════════════
+// AI 중계 함수 호출 (공통 규칙 6-1 / 10-1)
+// ══════════════════════════
+function aiParams(){
+  const p = new URLSearchParams(location.search);
+  return { teacher: p.get('teacher') || (typeof teacherUid !== 'undefined' && teacherUid) || '', demo: p.get('demo') || '' };
 }
-function mutoPcmToWavUrl(base64pcm){
-  const binary = atob(base64pcm);
-  const len = binary.length;
-  const bytes = new Uint8Array(len);
-  for(let i=0;i<len;i++) bytes[i]=binary.charCodeAt(i);
-  const sampleRate=24000, numChannels=1, bitsPerSample=16;
-  const buffer = new ArrayBuffer(44+len);
-  const view = new DataView(buffer);
-  function ws(offset,str){ for(let i=0;i<str.length;i++) view.setUint8(offset+i, str.charCodeAt(i)); }
-  ws(0,'RIFF'); view.setUint32(4,36+len,true); ws(8,'WAVE');
-  ws(12,'fmt '); view.setUint32(16,16,true); view.setUint16(20,1,true);
-  view.setUint16(22,numChannels,true); view.setUint32(24,sampleRate,true);
-  view.setUint32(28,sampleRate*numChannels*bitsPerSample/8,true);
-  view.setUint16(32,numChannels*bitsPerSample/8,true); view.setUint16(34,bitsPerSample,true);
-  ws(36,'data'); view.setUint32(40,len,true);
-  new Uint8Array(buffer,44).set(bytes);
-  return URL.createObjectURL(new Blob([buffer],{type:'audio/wav'}));
+async function callAI(payload){
+  const { teacher, demo } = aiParams();
+  const res = await fetch('api/ai', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(Object.assign({ teacher, demo }, payload))
+  });
+  const data = await res.json().catch(()=>({ error:{ message:'AI 서버 응답을 읽지 못했어요.' } }));
+  if(data.error) throw new Error(data.error.message || 'AI 오류');
+  return data;
+}
+function isGuestMode(){
+  const p = new URLSearchParams(location.search);
+  if(p.get('teacher') || p.get('demo')) return false;
+  return !currentUser;
+}
+// QR·초대 링크 없이 들어온 손님: 관찰은 열어 두고 AI와 기록만 막는다 (2026-09-19)
+function applyGuestLock(){
+  if(!isGuestMode()) return;
+  const b = document.getElementById('anatomy-mission-btn');
+  if(b) b.disabled = true;
+  document.querySelectorAll('.qr-notice').forEach(el=>{ el.style.display='block'; });
+  const el = document.getElementById('log-list');
+  if(el) el.innerHTML = '<p style="font-size:0.8em;color:#666;line-height:1.5">선생님이 주신 QR이나 링크로 들어오면<br>탐구 기록이 여기에 쌓여요</p>';
+}
+function releaseGuestLock(){
+  document.querySelectorAll('.qr-notice').forEach(el=>{ el.style.display='none'; });
+  renderLogs();
 }
 
 // ══════════════════════════
@@ -780,34 +764,13 @@ async function showSystemExplanation(key){
   document.getElementById('system-explain-text').textContent = text;
   box.style.display = 'block';
   currentSystemVoiceText = text;
-  const voiceBtn = document.getElementById('system-explain-voice-btn');
-  if((settings.apiKey||'').trim()){
-    voiceBtn.disabled = true; voiceBtn.textContent = '🔊 읽는 중...';
-    await speakMuto(text);
-    voiceBtn.disabled = false; voiceBtn.textContent = '🔊 다시 듣기';
-  }
+  // 기관계 설명 음성도 2026-09-19에 제거함 — 설명은 글로만 보여 준다
 }
 function hideSystemExplanation(){
   document.getElementById('system-explain-box').style.display = 'none';
   currentSystemVoiceText = '';
 }
-function stopSystemVoice(){
-  if(currentAudioEl){
-    try{ currentAudioEl.pause(); currentAudioEl.currentTime = 0; }catch(e){}
-    currentAudioEl = null;
-  }
-  const voiceBtn = document.getElementById('system-explain-voice-btn');
-  if(voiceBtn){ voiceBtn.disabled = false; voiceBtn.textContent = '🔊 다시 듣기'; }
-}
-function replaySystemVoice(){
-  if(!currentSystemVoiceText) return;
-  if(!(settings.apiKey||'').trim()){ alert('선생님이 아직 API 키를 설정하지 않았어요.'); return; }
-  const voiceBtn = document.getElementById('system-explain-voice-btn');
-  voiceBtn.disabled = true; voiceBtn.textContent = '🔊 읽는 중...';
-  speakMuto(currentSystemVoiceText).finally(()=>{
-    voiceBtn.disabled = false; voiceBtn.textContent = '🔊 다시 듣기';
-  });
-}
+
 
 let activeSystems = new Set();
 let selectedOrgan = null;
@@ -1255,10 +1218,6 @@ function toggleEnergyMode(){
   if(energyMode){ renderEnergyFlow(); } else { hideEnergyFlow(); }
 }
 async function explainEnergyIntegration(){
-  if(!(settings.apiKey||'').trim()){
-    alert('선생님이 아직 API 키를 설정하지 않았어요. 선생님께 문의해주세요.');
-    return;
-  }
   const btn = document.getElementById('energy-explain-btn');
   const box = document.getElementById('energy-explain-result');
   btn.disabled = true; btn.textContent = '🤖 생성하는 중...';
@@ -1345,27 +1304,17 @@ function updateMissionState(){
   }
 }
 
-async function callGemini(prompt, maxTokens=600){
-  const key = (settings.apiKey||'').trim();
-  if(!key) throw new Error('NO_KEY');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
-  const res = await fetch(url, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens, thinkingConfig: { thinkingBudget: 0 } }
-    })
+async function callGemini(prompt, maxTokens=1024){
+  const data = await callAI({
+    model: 'text',
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens }
   });
-  const data = await res.json();
-  if(data.error) throw new Error(data.error.message);
   return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
 async function generateAnatomyMission(){
-  if(!(settings.apiKey||'').trim()){
-    alert('선생님이 아직 API 키를 설정하지 않았어요. 선생님께 문의해주세요.');
-    return;
-  }
+  if(isGuestMode()) return;
   const btn = document.getElementById('anatomy-mission-btn');
   btn.disabled = true; btn.textContent = '🤖 질문 만드는 중...';
   document.getElementById('anatomy-question-card').style.display = 'none';
@@ -1431,6 +1380,7 @@ async function submitAnatomyAnswer(){
 }
 
 function saveAnatomyLog(mission, answer, feedback){
+  if(isGuestMode()) return;   // 손님 화면은 기기에도 남기지 않는다 (규칙 10-1)
   const pairLabel = `🔬 ${mission.topic}`;
   const logs = JSON.parse(localStorage.getItem('eaim_anatomy_logs') || '[]');
   logs.unshift({
@@ -1460,6 +1410,7 @@ function saveAnatomyLog(mission, answer, feedback){
 }
 
 function renderLogs(){
+  if(isGuestMode()) return;
   const logs = JSON.parse(localStorage.getItem('eaim_anatomy_logs') || '[]');
   const el = document.getElementById('log-list');
   if(!logs.length){ el.innerHTML = '<p style="font-size:0.8em;color:#666">아직 기록이 없어요.</p>'; return; }
@@ -1484,6 +1435,8 @@ function renderLogs(){
     return;
   }
 
+  applyGuestLock();
+
   if(role==='student'){
     isStudentMode=true;
     if(!teacherParam){ renderNoTeacherLink(); return; }
@@ -1498,6 +1451,7 @@ function renderLogs(){
     currentUser=user;
     if(user){
       teacherUid=user.uid;
+      releaseGuestLock();
       subscribeSettings(teacherUid, ()=>{ enterTeacherDashboard(); });
     } else {
       renderTeacherGoogleGate();

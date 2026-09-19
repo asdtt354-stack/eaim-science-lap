@@ -53,6 +53,7 @@
         .btn-submit:hover { background: #27ae60; }
         .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 
+        .btn-submit:disabled { opacity: 0.45; cursor: not-allowed; filter: grayscale(0.4); }
         #ai-response { margin-top: 15px; background: rgba(46, 204, 113, 0.1); padding: 15px; border-radius: 8px; font-size: 0.9em; line-height: 1.6; border: 1px solid rgba(46, 204, 113, 0.3); display: none; }
 
         #saved-logs { margin-top: 20px; border-top: 1px solid #333; padding-top: 15px; }
@@ -302,8 +303,8 @@
     <div class="control-group" style="flex-grow: 1; display: flex; flex-direction: column;">
         <label>📝 관찰 일지 작성</label>
         <textarea id="student-log" placeholder="3D 화면을 돌려보며 표면 특징을 상세히 기록하세요. 달은 위상 원리를, 태양은 흑점·홍염의 위치를 기록하세요."></textarea>
-        <button class="btn-submit" onclick="submitLog()">AI 가이드 피드백 받기</button>
-        <p style="font-size: 0.7em; color: #888; margin-top: 5px; text-align: center;">※ 선생님이 설정한 API 키로 작동해요. 오류 발생 시 선생님께 문의하세요.</p>
+        <button class="btn-submit" id="submit-log-btn" onclick="submitLog()">AI 가이드 피드백 받기</button>
+        <p class="qr-notice" style="display:none;font-size:0.75em;color:#888;margin:6px 0 0;text-align:center;line-height:1.5">선생님이 주신 QR이나 링크로 들어오면<br>AI 피드백을 받을 수 있어요</p>
         <div id="ai-response"></div>
     </div>
 
@@ -386,52 +387,49 @@
       const box = document.getElementById('mutoEncourageBox');
       if(box){ box.style.display='block'; box.textContent = mood.msg; }
       const btn = document.getElementById('mutoContinueBtn'); if(btn) btn.style.display='block';
-      speakMuto(mood.msg);
+      // 뮤토 음성은 2026-09-19에 제거함(재생이 늘 늦게 나옴) — 되돌리지 않기
     }
     function closeMutoMoodAndEnter(){
       document.getElementById('mutoMoodOverlay').style.display='none';
       if(afterMutoMoodFn) afterMutoMoodFn();
     }
-    async function speakMuto(text){
-      try{
-        const key = (settings.apiKey||'').trim();
-        if(!key) return;
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${key}`;
-        const res = await fetch(url, {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            contents: [{ parts: [{ text }] }],
-            generationConfig: {
-              responseModalities: ["AUDIO"],
-              speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } } }
-            }
-          })
-        });
-        const data = await res.json();
-        const part = data?.candidates?.[0]?.content?.parts?.find(p=>p.inlineData);
-        if(!part) return;
-        const wavUrl = mutoPcmToWavUrl(part.inlineData.data);
-        const audio = new Audio(wavUrl);
-        audio.play().catch(()=>{});
-      }catch(e){ console.warn('뮤토 음성 재생 실패', e); }
+    // ══════════════════════════
+    // AI 중계 함수 호출 (공통 규칙 6-1 / 10-1)
+    //  키는 서버(api/ai)에만 있고 브라우저로 내려오지 않는다.
+    // ══════════════════════════
+    function aiParams(){
+      const p = new URLSearchParams(location.search);
+      return { teacher: p.get('teacher') || (typeof teacherUid !== 'undefined' && teacherUid) || '', demo: p.get('demo') || '' };
     }
-    function mutoPcmToWavUrl(base64pcm){
-      const binary = atob(base64pcm);
-      const len = binary.length;
-      const bytes = new Uint8Array(len);
-      for(let i=0;i<len;i++) bytes[i]=binary.charCodeAt(i);
-      const sampleRate=24000, numChannels=1, bitsPerSample=16;
-      const buffer = new ArrayBuffer(44+len);
-      const view = new DataView(buffer);
-      function ws(offset,str){ for(let i=0;i<str.length;i++) view.setUint8(offset+i, str.charCodeAt(i)); }
-      ws(0,'RIFF'); view.setUint32(4,36+len,true); ws(8,'WAVE');
-      ws(12,'fmt '); view.setUint32(16,16,true); view.setUint16(20,1,true);
-      view.setUint16(22,numChannels,true); view.setUint32(24,sampleRate,true);
-      view.setUint32(28,sampleRate*numChannels*bitsPerSample/8,true);
-      view.setUint16(32,numChannels*bitsPerSample/8,true); view.setUint16(34,bitsPerSample,true);
-      ws(36,'data'); view.setUint32(40,len,true);
-      new Uint8Array(buffer,44).set(bytes);
-      return URL.createObjectURL(new Blob([buffer],{type:'audio/wav'}));
+    async function callAI(payload){
+      const { teacher, demo } = aiParams();
+      const res = await fetch('api/ai', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(Object.assign({ teacher, demo }, payload))
+      });
+      const data = await res.json().catch(()=>({ error:{ message:'AI 서버 응답을 읽지 못했어요.' } }));
+      if(data.error) throw new Error(data.error.message || 'AI 오류');
+      return data;
+    }
+    function isGuestMode(){
+      const p = new URLSearchParams(location.search);
+      if(p.get('teacher') || p.get('demo')) return false;
+      return !currentUser;
+    }
+    // QR·초대 링크 없이 들어온 손님: 관측은 그대로 열어 두고 AI와 기록만 막는다 (2026-09-19)
+    function applyGuestLock(){
+      if(!isGuestMode()) return;
+      const b = document.getElementById('submit-log-btn');
+      if(b) b.disabled = true;
+      document.querySelectorAll('.qr-notice').forEach(el=>{ el.style.display='block'; });
+      const el = document.getElementById('log-list');
+      if(el) el.innerHTML = '<p style="font-size:0.8em;color:#666;line-height:1.5">선생님이 주신 QR이나 링크로 들어오면<br>관측 일지가 여기에 쌓여요</p>';
+    }
+    function releaseGuestLock(){
+      const b = document.getElementById('submit-log-btn');
+      if(b) b.disabled = false;
+      document.querySelectorAll('.qr-notice').forEach(el=>{ el.style.display='none'; });
+      renderLogs();
     }
 
 
@@ -981,9 +979,6 @@
         const respDiv = document.getElementById('ai-response');
         if(!logText) return alert("관찰 내용을 먼저 기록해 주세요!");
 
-        const key = (settings.apiKey||'').trim();
-        if(!key) return alert("선생님이 아직 API 키를 설정하지 않았어요. 선생님께 문의해주세요.");
-
         respDiv.style.display = 'block';
         respDiv.innerHTML = "📡 제미나이 2.5 플래시 엔진이 기록을 분석 중입니다...";
 
@@ -997,20 +992,11 @@
         const prompt = `당신은 에임 천문대의 중학교 과학 교사입니다. 학생이 '${targetName}'을 관측하고 다음 일지를 썼습니다: "${logText}"\n${context}\n학생의 관찰력에 대해 따뜻하게 칭찬하고, 해당 천체의 과학적 특징을 1~2문장으로 보완 설명해주세요. 학생 설명 중 과학적으로 틀린 부분이 있으면 칭찬하지 말고 부드럽게 바로잡아주세요.`;
 
         try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: { temperature: 0.7, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } }
-                })
+            const data = await callAI({
+                model: 'text',
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { temperature: 0.7, maxOutputTokens: 1024 }
             });
-
-            if(!res.ok) {
-                const errData = await res.json();
-                throw new Error(errData.error.message || "알 수 없는 API 에러 발생");
-            }
-
-            const data = await res.json();
             const feedbackText = data.candidates[0].content.parts[0].text;
             respDiv.innerHTML = feedbackText.replace(/\n/g, '<br>');
             saveToStorage(targetName, logText, feedbackText);
@@ -1020,6 +1006,7 @@
     }
 
     function saveToStorage(target, logText, feedbackText) {
+        if(isGuestMode()) return;   // 손님 화면은 기기에도 남기지 않는다 (규칙 10-1)
         const date = document.getElementById('obs-date').value;
         const loc = document.getElementById('obs-location').value;
         const log = { target, logText, date, loc };
@@ -1046,6 +1033,7 @@
     }
 
     function renderLogs() {
+        if(isGuestMode()) return;
         const logs = JSON.parse(localStorage.getItem('eaim_observatory_logs') || "[]");
         const listDiv = document.getElementById('log-list');
         listDiv.innerHTML = logs.map(l => `
@@ -1200,6 +1188,8 @@
             return;
         }
 
+        applyGuestLock();
+
         if(role==='student'){
             isStudentMode=true;
             if(!teacherParam){ renderNoTeacherLink(); return; }
@@ -1214,6 +1204,7 @@
             currentUser=user;
             if(user){
                 teacherUid=user.uid;
+                releaseGuestLock();
                 subscribeSettings(teacherUid, ()=>{ enterTeacherDashboard(); });
             } else {
                 renderTeacherGoogleGate();

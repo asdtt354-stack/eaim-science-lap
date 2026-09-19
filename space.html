@@ -109,6 +109,8 @@ textarea { width: 100%; height: 80px; background: #1a1a24; color: white; border:
 .feedback-box { margin-top: 12px; background: rgba(46, 204, 113, 0.08); padding: 12px; border-radius: 8px; font-size: 0.86em; line-height: 1.6; border: 1px solid rgba(46, 204, 113, 0.3); display: none; }
 
 #log-list { margin-top: 8px; }
+/* QR·초대 링크 없이 들어왔을 때: 버튼은 보이되 누를 수 없고, 아래에 안내가 뜬다 (2026-09-19) */
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; filter: grayscale(0.4); }
 .log-item { background: #111; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid var(--main-color); font-size: 0.78em; line-height: 1.5; }
 .log-item .log-meta { color: #888; font-size: 0.85em; margin-bottom: 3px; }
 
@@ -402,7 +404,7 @@ textarea { width: 100%; height: 80px; background: #1a1a24; color: white; border:
     <select id="planet-a"></select>
     <select id="planet-b"></select>
     <button class="btn-primary" onclick="generateMission()" id="mission-btn">🤖 관측 미션 받기</button>
-    <p style="font-size:0.68em;color:#888;margin-top:6px;text-align:center">※ 선생님이 설정한 API 키로 작동해요. 오류 발생 시 선생님께 문의하세요.</p>
+    <p class="qr-notice" style="display:none;font-size:0.72em;color:#888;margin:6px 0 0;text-align:center;line-height:1.5">선생님이 주신 QR이나 링크로 들어오면<br>AI 미션을 할 수 있어요</p>
   </div>
 
   <div class="question-card" id="question-card"></div>
@@ -419,6 +421,7 @@ textarea { width: 100%; height: 80px; background: #1a1a24; color: white; border:
     <label style="color:#f9a8d4">🔭 지금 망원경으로 관측한 내용 질문받기</label>
     <p style="font-size:0.7em;color:#888;margin:-2px 0 10px">왼쪽 조작판에서 관측 대상·망원경 종류·배율을 먼저 정해보세요.</p>
     <button class="btn-primary" style="background:#ec4899" onclick="generateTelescopeMission()" id="telescope-mission-btn">🔭 관측 질문 받기</button>
+    <p class="qr-notice" style="display:none;font-size:0.72em;color:#888;margin:6px 0 0;text-align:center;line-height:1.5">선생님이 주신 QR이나 링크로 들어오면<br>AI 질문을 받을 수 있어요</p>
   </div>
 
   <div class="question-card" id="telescope-question-card" style="border-color:rgba(244,114,182,0.3);background:rgba(244,114,182,0.08)"></div>
@@ -431,7 +434,7 @@ textarea { width: 100%; height: 80px; background: #1a1a24; color: white; border:
 
   <div class="feedback-box" id="telescope-feedback-box" style="border-color:rgba(244,114,182,0.3);background:rgba(244,114,182,0.08)"></div>
 
-  <div style="margin-top:20px;border-top:1px solid #333;padding-top:14px">
+  <div id="log-section-wrap" style="margin-top:20px;border-top:1px solid #333;padding-top:14px">
     <h3 style="color:#aaa;margin:0 0 8px 0;font-size:0.9em">보관된 관측 기록</h3>
     <div id="log-list"></div>
   </div>
@@ -1235,6 +1238,38 @@ function initThreeScene(){
   });
 }
 
+// QR·초대 링크(teacher=) 없이 들어온 손님 화면 잠그기 (2026-09-19)
+//  관찰·조작은 그대로 열어 두고, AI 미션과 기록만 막는다.
+function applyGuestLock(){
+  const p = new URLSearchParams(location.search);
+  const hasTeacher = !!(p.get('teacher') || p.get('demo'));
+  if(hasTeacher) return;
+  ['mission-btn','telescope-mission-btn'].forEach(id=>{
+    const b = document.getElementById(id);
+    if(b) b.disabled = true;
+  });
+  document.querySelectorAll('.qr-notice').forEach(el=>{ el.style.display='block'; });
+  // 기록 칸은 숨기지 않는다 — 교사가 "기록이 안 쌓이나" 하고 헷갈리지 않도록.
+  // 대신 손님 화면에서는 비워 두고 안내만 띄우며, 저장도 하지 않는다.
+  const el = document.getElementById('log-list');
+  if(el) el.innerHTML = '<p style="font-size:0.8em;color:#666;line-height:1.5">선생님이 주신 QR이나 링크로 들어오면<br>관측 기록이 여기에 쌓여요</p>';
+}
+// 손님(QR·초대 링크 없이 들어온 사람)인지 — 기록 저장을 막는 데 쓴다
+function isGuestMode(){
+  const p = new URLSearchParams(location.search);
+  if(p.get('teacher') || p.get('demo')) return false;
+  return !currentUser;          // 구글 로그인한 교사는 손님이 아니다
+}
+// 교사가 로그인하면 잠금을 풀어 준다 (교사 대시보드에서 기록 칸을 확인할 수 있게)
+function releaseGuestLock(){
+  ['mission-btn','telescope-mission-btn'].forEach(id=>{
+    const b = document.getElementById(id);
+    if(b) b.disabled = false;
+  });
+  document.querySelectorAll('.qr-notice').forEach(el=>{ el.style.display='none'; });
+  renderLogs();
+}
+
 // ══════════════════════════
 // AI 관측 미션 (2층: 질문 생성 → 서술 → 피드백 → 기록)
 // ══════════════════════════
@@ -1317,6 +1352,7 @@ async function submitAnswer(){
 }
 
 function saveLog(mission, answer, feedback){
+  if(isGuestMode()) return;   // 손님 화면은 기기에도 남기지 않는다 (규칙 10-1)
   const logs = JSON.parse(localStorage.getItem('eaim_odyssey_logs') || '[]');
   logs.unshift({
     pair: `${mission.a} vs ${mission.b}`,
@@ -1345,6 +1381,7 @@ function saveLog(mission, answer, feedback){
 }
 
 function renderLogs(){
+  if(isGuestMode()) return;
   const logs = JSON.parse(localStorage.getItem('eaim_odyssey_logs') || '[]');
   const el = document.getElementById('log-list');
   if(!logs.length){ el.innerHTML = '<p style="font-size:0.8em;color:#666">아직 기록이 없어요.</p>'; return; }
@@ -1424,6 +1461,7 @@ async function submitTelescopeAnswer(){
 }
 
 function saveTelescopeLog(mission, answer, feedback){
+  if(isGuestMode()) return;   // 손님 화면은 기기에도 남기지 않는다 (규칙 10-1)
   const pairLabel = `🔭 ${mission.target} · ${mission.telescopeType} ${mission.zoom}×`;
   const logs = JSON.parse(localStorage.getItem('eaim_odyssey_logs') || '[]');
   logs.unshift({
@@ -1467,6 +1505,8 @@ function saveTelescopeLog(mission, answer, feedback){
     return;
   }
 
+  applyGuestLock();
+
   if(role==='student'){
     isStudentMode=true;
     if(!teacherParam){ renderNoTeacherLink(); return; }
@@ -1481,6 +1521,7 @@ function saveTelescopeLog(mission, answer, feedback){
     currentUser=user;
     if(user){
       teacherUid=user.uid;
+      releaseGuestLock();
       subscribeSettings(teacherUid, ()=>{ enterTeacherDashboard(); });
     } else {
       renderTeacherGoogleGate();
