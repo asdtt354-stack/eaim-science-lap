@@ -39,6 +39,9 @@ body { margin: 0; background: var(--bg-dark); color: white; font-family: 'Preten
 .slider-group { margin-bottom: 14px; }
 .slider-group:last-child { margin-bottom: 0; }
 .control-panel label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 0.85em; }
+/* 모바일에서 조작판이 3D 화면을 통째로 덮던 문제 (2026-09-19) — 되돌리지 않기
+   좁은 화면에서는 조작판을 접어 두고, 버튼으로 여닫는다. */
+#panelToggle { display: none; }
 .label-speed { color: var(--main-color); }
 .label-size { color: var(--accent); }
 input[type=range] { width: 100%; cursor: pointer; }
@@ -119,7 +122,12 @@ textarea { width: 100%; height: 80px; background: #1a1a24; color: white; border:
   #mainApp { flex-direction: column; height: auto; }
   #viewer-section { width: 100%; height: 55vh; flex: none; }
   .header h1 { font-size: 1.4em; }
-  .control-panel { width: calc(100% - 48px); left: 24px; right: 24px; }
+  .control-panel { width: calc(100% - 48px); left: 24px; right: 24px; max-height: 40vh; }
+  #panelToggle { display: block; width: 100%; padding: 10px; margin: 0; background: rgba(0,212,255,0.12);
+    border: 1px solid var(--accent); color: var(--accent); border-radius: 8px; font-family: inherit;
+    font-weight: 700; font-size: 0.9em; cursor: pointer; }
+  .control-panel.collapsed { max-height: none; overflow: visible; padding: 10px; }
+  .control-panel.collapsed > *:not(#panelToggle) { display: none; }
   #mission-section { width: 100%; max-width: 100%; min-width: 100%; height: auto; flex: none; border-left: none; border-top: 2px solid var(--accent); }
 }
 
@@ -300,7 +308,8 @@ select option, select.mi option { background: #1e2130; color: #fff; }
     <p>마우스로 화면을 돌려보며 완전한 태양계의 움직임을 관찰하세요</p>
   </div>
 
-  <div class="control-panel">
+  <div class="control-panel" id="controlPanel">
+    <button type="button" id="panelToggle" onclick="togglePanel()">⚙️ 조작판 열기</button>
     <div class="slider-group">
       <label class="label-speed">⏱️ 시간 가속기 (공전/자전 속도)</label>
       <input type="range" id="speed-slider" class="slider-speed" min="0" max="10" step="0.1" value="1">
@@ -1263,6 +1272,25 @@ function initThreeScene(){
   });
 }
 
+// 모바일에서 조작판 여닫기 (2026-09-19)
+//  좁은 화면에서는 조작판이 3D 화면을 거의 다 가리므로 접은 채로 시작한다.
+function togglePanel(){
+  const panel = document.getElementById('controlPanel');
+  const btn = document.getElementById('panelToggle');
+  if(!panel || !btn) return;
+  const collapsed = panel.classList.toggle('collapsed');
+  btn.textContent = collapsed ? '⚙️ 조작판 열기' : '✕ 조작판 닫기';
+}
+function initPanelState(){
+  const panel = document.getElementById('controlPanel');
+  const btn = document.getElementById('panelToggle');
+  if(!panel || !btn) return;
+  const narrow = window.innerWidth <= 850;
+  panel.classList.toggle('collapsed', narrow);
+  btn.textContent = narrow ? '⚙️ 조작판 열기' : '✕ 조작판 닫기';
+}
+window.addEventListener('resize', initPanelState);
+
 // QR·초대 링크(teacher=) 없이 들어온 손님 화면 잠그기 (2026-09-19)
 //  관찰·조작은 그대로 열어 두고, AI 미션과 기록만 막는다.
 function applyGuestLock(){
@@ -1530,6 +1558,7 @@ function saveTelescopeLog(mission, answer, feedback){
     return;
   }
 
+  initPanelState();
   applyGuestLock();
 
   if(role==='student'){
