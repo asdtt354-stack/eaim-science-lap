@@ -500,52 +500,30 @@ const MUTO_MOODS = [
       const box = document.getElementById('mutoEncourageBox');
       if(box){ box.style.display='block'; box.textContent = mood.msg; }
       const btn = document.getElementById('mutoContinueBtn'); if(btn) btn.style.display='block';
-      speakMuto(mood.msg);
+      // 뮤토 음성은 2026-09-19에 제거함(재생이 늘 늦게 나옴). 격려 문구는 글로만 보여 준다. — 되돌리지 않기
     }
     function closeMutoMoodAndEnter(){
       document.getElementById('mutoMoodOverlay').style.display='none';
       if(afterMutoMoodFn) afterMutoMoodFn();
     }
-    async function speakMuto(text){
-      try{
-        const key = (settings.apiKey||'').trim();
-        if(!key) return;
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${key}`;
-        const res = await fetch(url, {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            contents: [{ parts: [{ text }] }],
-            generationConfig: {
-              responseModalities: ["AUDIO"],
-              speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } } }
-            }
-          })
-        });
-        const data = await res.json();
-        const part = data?.candidates?.[0]?.content?.parts?.find(p=>p.inlineData);
-        if(!part) return;
-        const wavUrl = mutoPcmToWavUrl(part.inlineData.data);
-        const audio = new Audio(wavUrl);
-        audio.play().catch(()=>{});
-      }catch(e){ console.warn('뮤토 음성 재생 실패', e); }
+    // ══════════════════════════
+    // AI 중계 함수 호출 (공통 규칙 6-1 / 10-1)
+    //  키는 서버(api/ai)에만 있고 브라우저로 내려오지 않는다.
+    //  'api/ai' 는 상대 경로 — 통합 플랫폼으로 합칠 때 그대로 동작한다.
+    // ══════════════════════════
+    function aiParams(){
+      const p = new URLSearchParams(location.search);
+      return { teacher: p.get('teacher') || (typeof teacherUid !== 'undefined' && teacherUid) || '', demo: p.get('demo') || '' };
     }
-    function mutoPcmToWavUrl(base64pcm){
-      const binary = atob(base64pcm);
-      const len = binary.length;
-      const bytes = new Uint8Array(len);
-      for(let i=0;i<len;i++) bytes[i]=binary.charCodeAt(i);
-      const sampleRate=24000, numChannels=1, bitsPerSample=16;
-      const buffer = new ArrayBuffer(44+len);
-      const view = new DataView(buffer);
-      function ws(offset,str){ for(let i=0;i<str.length;i++) view.setUint8(offset+i, str.charCodeAt(i)); }
-      ws(0,'RIFF'); view.setUint32(4,36+len,true); ws(8,'WAVE');
-      ws(12,'fmt '); view.setUint32(16,16,true); view.setUint16(20,1,true);
-      view.setUint16(22,numChannels,true); view.setUint32(24,sampleRate,true);
-      view.setUint32(28,sampleRate*numChannels*bitsPerSample/8,true);
-      view.setUint16(32,numChannels*bitsPerSample/8,true); view.setUint16(34,bitsPerSample,true);
-      ws(36,'data'); view.setUint32(40,len,true);
-      new Uint8Array(buffer,44).set(bytes);
-      return URL.createObjectURL(new Blob([buffer],{type:'audio/wav'}));
+    async function callAI(payload){
+      const { teacher, demo } = aiParams();
+      const res = await fetch('api/ai', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(Object.assign({ teacher, demo }, payload))
+      });
+      const data = await res.json().catch(()=>({ error:{ message:'AI 서버 응답을 읽지 못했어요.' } }));
+      if(data.error) throw new Error(data.error.message || 'AI 오류');
+      return data;
     }
 
 
@@ -1263,26 +1241,16 @@ function initThreeScene(){
 let currentMission = null;
 
 async function callGemini(prompt, maxTokens=1024){
-  const key = (settings.apiKey||'').trim();
-  if(!key) throw new Error('NO_KEY');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
-  const res = await fetch(url, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens, thinkingConfig: { thinkingBudget: 0 } }
-    })
+  // 모델 이름 대신 별칭만 보낸다 (규칙 6-2). thinkingConfig 는 중계 함수가 붙인다 (규칙 6-3).
+  const data = await callAI({
+    model: 'text',
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens }
   });
-  const data = await res.json();
-  if(data.error) throw new Error(data.error.message);
   return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
 async function generateMission(){
-  if(!(settings.apiKey||'').trim()){
-    alert('선생님이 아직 API 키를 설정하지 않았어요. 선생님께 문의해주세요.');
-    return;
-  }
   const aKey = planetSelA.value, bKey = planetSelB.value;
   if(aKey === bKey){ alert('서로 다른 행성 두 개를 골라주세요!'); return; }
   const a = planetsData[aKey], b = planetsData[bKey];
@@ -1393,10 +1361,6 @@ function renderLogs(){
 let currentTelescopeMission = null;
 
 async function generateTelescopeMission(){
-  if(!(settings.apiKey||'').trim()){
-    alert('선생님이 아직 API 키를 설정하지 않았어요. 선생님께 문의해주세요.');
-    return;
-  }
   if(!telescopeTarget){
     alert('먼저 왼쪽 조작판에서 관측 대상을 선택해주세요!');
     return;
