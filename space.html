@@ -127,6 +127,11 @@ textarea { width: 100%; height: 80px; background: #1a1a24; color: white; border:
 .mb { background: #161625; border-radius: 1.5rem; padding: 24px; width: 100%; max-width: 400px; box-shadow: 0 28px 56px rgba(0,0,0,0.5); border: 1.5px solid #333; text-align: center; max-height: 88vh; overflow-y: auto; }
 .mi { width: 100%; text-align: center; font-size: 1.05rem; font-family: inherit; font-weight: 700; border: 2px solid rgba(0,212,255,0.3); border-radius: 0.9rem; padding: 11px; outline: none; margin-bottom: 14px; background: rgba(255,255,255,0.07); color: #fff; }
 .mi:focus { border-color: var(--main-color); }
+/* 반/모둠 목록이 흰 배경에 흰 글씨로 보이지 않던 문제 (2026-09-19) — 되돌리지 않기
+   .mi 배경이 반투명이라 브라우저가 펼침 목록을 흰색으로 그려서, 흰 글씨가 묻혔다. */
+select.mi { background: #1e2130; }
+select option, select.mi option { background: #1e2130; color: #fff; }
+
 .google-btn { display: flex; align-items: center; justify-content: center; gap: 10px; background: #fff; color: #3c4043; border: none; border-radius: 12px; font-weight: 700; font-size: 0.95rem; padding: 14px; width: 100%; cursor: pointer; }
 .google-icon { width: 20px; height: 20px; flex-shrink: 0; }
 .teacher-chip { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 8px 12px; margin-bottom: 16px; text-align: left; }
@@ -215,6 +220,7 @@ textarea { width: 100%; height: 80px; background: #1a1a24; color: white; border:
       <label style="font-size:.78rem;font-weight:700;color:rgba(255,255,255,.7);display:block;margin-bottom:6px">학생 초대 링크 (전체 반/모둠 공용)</label>
       <div class="invite-box" id="inviteUrlBox"></div>
       <button class="btn-primary bg2 bsm" style="margin-top:8px" onclick="copyInvite()">🔗 링크 복사</button>
+      <button class="btn-primary bg2 bsm" style="margin-top:8px" onclick="openStudentView()">👀 학생 화면으로 보기</button>
       <div style="text-align:center"><div class="invite-qr-box" id="inviteQr"></div>
         <div class="invite-qr-caption">📱 학생들이 이 QR을 스캔하면 반/모둠을 직접 선택해서 접속돼요</div></div>
     </div>
@@ -735,6 +741,11 @@ function copyInvite(){
   const url = `${location.origin}${location.pathname}?role=student&teacher=${teacherUid}`;
   navigator.clipboard.writeText(url).then(()=>alert('✅ 초대 링크 복사됨!'));
 }
+// 교사 대시보드에서 학생 화면을 새 탭으로 바로 열어 본다 (2026-09-19)
+function openStudentView(){
+  const url = `${location.origin}${location.pathname}?role=student&teacher=${teacherUid}`;
+  window.open(url, '_blank');
+}
 function generateInviteQR(url){
   const el=document.getElementById('inviteQr'); if(!el) return;
   el.innerHTML='';
@@ -981,6 +992,21 @@ function initThreeScene(){
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(container.clientWidth, container.clientHeight);
   container.appendChild(renderer.domElement);
+
+  // 왼쪽 조작판이 화면을 가리는 만큼 태양계를 오른쪽으로 밀어 준다 (2026-09-19)
+  //  조작판은 폭 260px + 좌우 여백 24px씩 = 308px 를 덮는다. 그 절반만큼 시야를 옮기면
+  //  조작판 오른쪽의 '실제로 보이는 영역' 한가운데에 태양계가 놓인다.
+  //  세로로 쌓이는 모바일(850px 이하)에서는 가리지 않으므로 보정하지 않는다.
+  function applyPanelOffset(){
+    const w = container.clientWidth, h = container.clientHeight;
+    if(!w || !h) return;
+    const panelW = (window.innerWidth > 850) ? 308 : 0;
+    if(panelW) camera.setViewOffset(w, h, -panelW / 2, 0, w, h);
+    else camera.clearViewOffset();
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  applyPanelOffset();
 
   let isDragging = false;
   let previousMousePosition = { x: 0, y: 0 };
@@ -1232,9 +1258,8 @@ function initThreeScene(){
   animate();
 
   window.addEventListener('resize', ()=>{
-    camera.aspect = container.clientWidth / container.clientHeight;
-    camera.updateProjectionMatrix();
     renderer.setSize(container.clientWidth, container.clientHeight);
+    applyPanelOffset();
   });
 }
 
