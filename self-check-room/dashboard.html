@@ -7,7 +7,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="../lib/qrcode.min.js"></script>
 <style>
   :root { --main-color:#22d3ee; --bg-dark:#07090c; --accent:#a855f7; }
   * { box-sizing: border-box; }
@@ -85,6 +85,7 @@
   .wm-item .wm-q { font-size:0.8em; color:#ccc; margin-bottom:8px; }
   .wm-item .wm-a { font-size:0.86em; color:#fff; line-height:1.6; white-space:pre-wrap; }
 </style>
+<style>/* 공통규칙 3번: 한글 줄바꿈 — 단어 중간에서 끊지 않기 */ body{word-break:keep-all;overflow-wrap:break-word;}</style>
 </head>
 <body>
 
@@ -235,6 +236,13 @@ function subscribeRecords(){
     }, err => console.warn('결과 실시간 조회 오류', err));
 }
 
+// 학생 이름표: 반 + 번호 (+ 가린 이름). 예전 기록은 적혀 있던 이름을 그대로 보여 준다. (2026-09-25)
+function studentCell(r){
+  if (r.classNo) return `${esc(r.classNo)} ${esc(r.studentNo)}번${r.displayName ? ' ' + esc(r.displayName) : ''}`;
+  return esc(r.studentName || '반·번호 미입력');
+}
+function esc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
 function renderTable(){
   const filter = document.getElementById('subjectFilter').value;
   const rows = allRecords.filter(r => !filter || r.subject === filter);
@@ -248,7 +256,7 @@ function renderTable(){
     const pct = r.total ? r.correct / r.total : 0;
     const scoreClass = pct >= 0.8 ? 'score-good' : (pct >= 0.5 ? 'score-mid' : 'score-low');
     const subjectLabel = r.subject === 'science1' ? '과학1' : (r.subject === 'science2' ? '과학2' : r.subject);
-    const weakHtml = (r.weakTopics || []).map(w => `<span class="weak-tag">${w}</span>`).join('') || '<span style="color:#555">-</span>';
+    const weakHtml = (r.weakTopics || []).map(w => `<span class="weak-tag">${esc(w)}</span>`).join('') || '<span style="color:#555">-</span>';
     const time = r.createdAt && r.createdAt.toDate ? r.createdAt.toDate().toLocaleString('ko-KR') : '-';
     const fbVal = (r.feedback || '').replace(/"/g, '&quot;');
     const wCount = (r.writtenAnswers || []).length;
@@ -256,7 +264,7 @@ function renderTable(){
       ? `<button class="written-btn" onclick="openWrittenModal('${r.id}')">✍️ 보기 (${wCount})</button>`
       : '<span style="color:#555">-</span>';
     return `<tr>
-      <td>${r.studentName || '이름 미입력'}</td>
+      <td>${studentCell(r)}</td>
       <td>${subjectLabel}</td>
       <td>${r.unitLabel || r.unitKey || '-'}</td>
       <td class="${scoreClass}">${r.correct}/${r.total}</td>
@@ -277,12 +285,13 @@ function renderTable(){
 function openWrittenModal(id){
   const r = allRecords.find(x => x.id === id);
   if (!r) return;
-  document.getElementById('wmTitle').textContent = `${r.studentName || '이름 미입력'} 학생 · ${r.unitLabel || ''} 서술형 답안`;
+  const who = r.classNo ? `${r.classNo} ${r.studentNo}번${r.displayName ? ' ' + r.displayName : ''}` : (r.studentName || '반·번호 미입력');
+  document.getElementById('wmTitle').textContent = `${who} 학생 · ${r.unitLabel || ''} 서술형 답안`;
   document.getElementById('wmBody').innerHTML = (r.writtenAnswers || []).map(w => `
     <div class="wm-item">
-      <div class="wm-topic">${w.topic || ''}</div>
-      <div class="wm-q">Q. ${w.question || ''}</div>
-      <div class="wm-a">${w.answer || '(작성하지 않음)'}</div>
+      <div class="wm-topic">${esc(w.topic || '')}</div>
+      <div class="wm-q">Q. ${esc(w.question || '')}</div>
+      <div class="wm-a">${w.answer ? esc(w.answer) : '(작성하지 않음)'}</div>
     </div>
   `).join('');
   document.getElementById('writtenModalOverlay').classList.add('open');

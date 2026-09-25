@@ -3,94 +3,189 @@
     "id": "science/space-odyssey",
     "title": "태양계 오디세이",
     "platform": "science",
-    "subjects": ["과학"],
-    "fusion": ["음악"],
-    "grade": ["중1"],
+    "subjects": [
+      "과학"
+    ],
+    "fusion": [
+      "음악"
+    ],
+    "grade": [
+      "중1"
+    ],
     "target": "student",
     "activityType": "simulation",
     "minutes": 20,
-    "standards": ["[9과07-01]", "[9과07-03]"],
-    "tags": ["태양계", "행성", "공전", "자전", "혜성"],
-    "course": { "unit": "과학1-Ⅶ", "order": 1 },
+    "standards": [
+      "[9과07-01]",
+      "[9과07-03]"
+    ],
+    "tags": [
+      "태양계",
+      "행성",
+      "공전",
+      "자전",
+      "혜성"
+    ],
+    "course": {
+      "unit": "과학1-Ⅶ",
+      "order": 1
+    },
     "url": "space.html",
     "classroom": true,
     "ai": true,
     "summary": "3D 태양계에서 행성의 공전·자전을 관찰하고 AI 관측 미션에 답하는 활동",
-    "makerNote": "왜 만들었는지 한두 문장 — 선생님이 직접 채워 주세요."
+    "makerNote": "교과서 그림으로는 \"바깥 행성일수록 느리게 돈다\"가 외울 문장으로만 남아서, 학생이 직접 속도를 바꿔 가며 눈으로 확인하게 하려고 만들었다. AI는 정답을 알려 주지 않고 학생이 본 것을 말로 설명하도록 질문만 던진다."
   },
   {
     "id": "science/observatory",
     "title": "천문대 관측소",
     "platform": "science",
-    "subjects": ["과학"],
-    "fusion": ["음악"],
-    "grade": ["중1"],
+    "subjects": [
+      "과학"
+    ],
+    "fusion": [
+      "음악"
+    ],
+    "grade": [
+      "중1"
+    ],
     "target": "student",
     "activityType": "simulation",
     "minutes": 20,
-    "standards": ["[9과07-01]", "[9과07-02]", "[9과07-04]"],
-    "tags": ["달 위상", "일식", "월식", "태양 활동", "망원경"],
-    "course": { "unit": "과학1-Ⅶ", "order": 2 },
+    "standards": [
+      "[9과07-01]",
+      "[9과07-02]",
+      "[9과07-04]"
+    ],
+    "tags": [
+      "달 위상",
+      "태양 활동",
+      "망원경",
+      "태양 흑점"
+    ],
+    "course": {
+      "unit": "과학1-Ⅶ",
+      "order": 2
+    },
     "url": "observatory.html",
     "classroom": true,
     "ai": true,
     "summary": "날짜에 따른 달의 위상과 태양·행성을 망원경으로 관측하고 AI 관측 질문에 답하는 활동",
-    "makerNote": "왜 만들었는지 한두 문장 — 선생님이 직접 채워 주세요."
+    "makerNote": "달의 위상과 태양 활동은 실제로 관측할 기회가 적어서, 날짜를 바꿔 가며 달을 보고 망원경으로 들여다보듯 천체를 관찰하게 하려고 만들었다. 학생이 쓴 관측 일지에 AI가 바로 답해 주어 관찰이 기록과 생각으로 이어지게 했다."
   },
   {
     "id": "science/anatomy-explorer",
     "title": "인체 탐험대",
     "platform": "science",
-    "subjects": ["과학"],
-    "fusion": ["음악"],
-    "grade": ["중2"],
+    "subjects": [
+      "과학"
+    ],
+    "fusion": [
+      "음악"
+    ],
+    "grade": [
+      "중2",
+      "중3"
+    ],
     "target": "student",
     "activityType": "simulation",
     "minutes": 20,
-    "standards": ["[9과13-01]", "[9과13-02]", "[9과13-03]", "[9과13-04]", "[9과13-05]", "[9과20-02]"],
-    "tags": ["소화계", "순환계", "호흡계", "배설계", "신경계", "세포호흡"],
-    "course": { "unit": "과학2-Ⅵ", "order": 1 },
+    "standards": [
+      "[9과13-01]",
+      "[9과13-02]",
+      "[9과13-03]",
+      "[9과13-04]",
+      "[9과13-05]",
+      "[9과20-02]"
+    ],
+    "tags": [
+      "소화계",
+      "순환계",
+      "호흡계",
+      "배설계",
+      "신경계",
+      "세포호흡"
+    ],
+    "course": {
+      "unit": "과학2-Ⅵ",
+      "order": 1
+    },
     "url": "anatomy.html",
     "classroom": true,
     "ai": true,
     "summary": "인체 기관계를 분리·조립하며 관찰하고 세포호흡까지 에너지 흐름을 따라가는 활동",
-    "makerNote": "왜 만들었는지 한두 문장 — 선생님이 직접 채워 주세요."
+    "makerNote": "소화·순환·호흡·배설이 따로따로 외워지는 것이 아니라 한 몸 안에서 이어져 있다는 것을 보여 주려고 만들었다. 기관을 떼어 보고 다시 제자리에 놓으며 세포호흡까지 에너지가 흐르는 길을 따라가게 했다."
   },
   {
     "id": "science/earth-explorer",
     "title": "지구 탐험대",
     "platform": "science",
-    "subjects": ["과학"],
-    "fusion": ["음악"],
-    "grade": ["중2"],
+    "subjects": [
+      "과학"
+    ],
+    "fusion": [
+      "음악"
+    ],
+    "grade": [
+      "중2",
+      "중3"
+    ],
     "target": "student",
     "activityType": "simulation",
     "minutes": 20,
-    "standards": ["[9과09-01]", "[9과09-04]", "[9과09-05]", "[9과18-02]"],
-    "tags": ["토양", "풍화", "지권", "지진", "화산", "판 경계", "해수"],
-    "course": { "unit": "과학2-Ⅱ", "order": 1 },
+    "standards": [
+      "[9과09-01]",
+      "[9과09-04]",
+      "[9과09-05]",
+      "[9과18-02]"
+    ],
+    "tags": [
+      "토양",
+      "풍화",
+      "지권",
+      "지진",
+      "화산",
+      "판 경계",
+      "해수"
+    ],
+    "course": {
+      "unit": "과학2-Ⅱ",
+      "order": 1
+    },
     "url": "earth.html",
     "classroom": true,
     "ai": true,
     "summary": "토양층을 파 내려가며 관찰하고 바다층과 지진·화산을 판의 경계와 연결해 보는 활동",
-    "makerNote": "왜 만들었는지 한두 문장 — 선생님이 직접 채워 주세요."
+    "makerNote": "땅속과 바닷속은 직접 들어가 볼 수 없어서, 층을 하나씩 파 내려가며 지구 내부와 토양, 바다의 모습을 탐험하듯 만나게 하려고 만들었다. 지진과 화산이 판의 경계에 모이는 까닭을 스스로 찾아내도록 했다."
   },
   {
     "id": "science/life-science-talk",
     "title": "생활 과학 공감 톡",
     "platform": "science",
-    "subjects": ["과학"],
-    "fusion": ["음악"],
-    "grade": ["중1", "중2", "중3"],
+    "subjects": [
+      "과학"
+    ],
+    "fusion": [
+      "음악"
+    ],
+    "grade": [
+      "중1",
+      "중2",
+      "중3"
+    ],
     "target": "student",
     "activityType": "ai-mission",
     "minutes": 15,
     "standards": [],
-    "tags": ["생활 과학", "탐험 일지", "AI 대화"],
+    "tags": [
+      "생활 과학",
+      "탐험 일지",
+      "AI 대화"
+    ],
     "url": "science.html",
     "classroom": true,
     "ai": true,
     "summary": "교사가 정한 단원을 주제로 AI와 이야기를 주고받으며 탐험 일지를 남기는 활동",
-    "makerNote": "왜 만들었는지 한두 문장 — 선생님이 직접 채워 주세요."
+    "makerNote": "과학이 교과서 밖 일상에서 누군가의 당황함과 설렘 속에 있다는 것을 느끼게 하려고 만들었다. 이야기 속 주인공의 마음에 공감한 뒤 과학 원리로 문제를 풀게 해, 감성(Emotion)과 과학이 함께 자라도록 했다."
   }
 ]

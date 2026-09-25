@@ -8,7 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="lib/qrcode.min.js"></script>
     <style>
         :root { --main-color: #2ecc71; --bg-dark: #050508; --accent: #00d4ff; }
         * { box-sizing: border-box; }
@@ -133,6 +133,7 @@ select option, select.mi option { background: #1e2130; color: #fff; }
       <svg class="google-icon" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.9 32.6 29.4 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-4z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 7.1 29.5 5 24 5 16.3 5 9.7 9.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.3 0 10.2-2 13.8-5.4l-6.4-5.4C29.3 34.9 26.8 35.8 24 35.8c-5.3 0-9.8-3.4-11.4-8.1l-6.6 5.1C9.6 39.6 16.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.8l6.4 5.4C40.6 36.4 44 30.8 44 24c0-1.3-.1-2.7-.4-4z"/></svg>
       구글 계정으로 로그인
     </button>
+    <a href="#" onclick="enterPublicView();return false;" style="display:block;margin-top:12px;font-size:.8rem;font-weight:700;color:#7dd3fc;text-decoration:none">👀 로그인 없이 둘러보기 (관찰만, AI 미션은 수업 링크로)</a>
     <a href="index.html" style="display:block;margin-top:16px;font-size:.7rem;color:rgba(255,255,255,.3);text-decoration:none">← 허브로 돌아가기</a>
   </div>
 </div>
@@ -144,7 +145,8 @@ select option, select.mi option { background: #1e2130; color: #fff; }
     <div style="font-family:inherit;font-size:1.4rem;font-weight:900;margin-bottom:5px;color:var(--main-color)">천문대 관측소</div>
     <div style="font-size:.82rem;color:rgba(255,255,255,.45);margin-bottom:18px">NASA 데이터로 태양계를 관측해봐요!</div>
     <div class="locked-notice" id="lockedNotice" style="display:none">🔒 선생님이 아직 수업을 열지 않았어요</div>
-    <input type="text" id="sni" placeholder="이름 입력" class="mi" onkeydown="if(event.key==='Enter')sN()">
+    <div style="display:flex;gap:6px"><input type="text" id="sclassno" placeholder="반 (예: 1-3)" class="mi" style="flex:1.3;min-width:0" autocomplete="off"><input type="number" id="sno" placeholder="번호" min="1" max="99" inputmode="numeric" class="mi" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter')sN()"></div>
+    <input type="text" id="sni" placeholder="이름 (선택 · 첫 글자만 보여요)" class="mi" autocomplete="off" onkeydown="if(event.key==='Enter')sN()">
     <div id="classLockedChip" class="class-locked-chip"></div>
     <select id="sclass" class="mi" style="text-align:left">
       <option value="">반/모둠 선택</option>
@@ -190,6 +192,7 @@ select option, select.mi option { background: #1e2130; color: #fff; }
         <input type="password" id="apiKeyInput" class="mi" placeholder="AIzaSy..." style="font-size:.85rem;padding-right:44px;margin-bottom:0" autocomplete="off" oninput="saveApiKeyDash(this.value)">
         <button type="button" onclick="toggleApiKeyVisibility()" id="apiKeyToggleBtn" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;padding:4px;line-height:1" aria-label="API 키 표시/숨기기">👁️</button>
       </div>
+      <p style="font-size:.68rem;color:#94a3b8;margin:4px 0 10px;line-height:1.5;text-align:left">키는 학생 기기로 내려가지 않고 서버(AI 중계)에서만 쓰여요. 키에는 <b>API 제한(Generative Language API)</b>과 <b>하루 한도</b>만 걸고, 웹사이트 제한은 걸지 마세요.</p>
     </div>
     <button class="btn-primary bfl" style="margin-bottom:10px;background:rgba(0,212,255,0.12);border:1.5px solid rgba(0,212,255,0.35);color:var(--accent)" onclick="openStudentStatus()">📊 학생 활동 현황 보기</button>
     <button class="btn-primary bg2 bfl" onclick="teacherLogout()">로그아웃</button>
@@ -237,7 +240,7 @@ select option, select.mi option { background: #1e2130; color: #fff; }
     <div id="obs-starfield"></div>
     <div style="position: absolute; top: 15px; left: 15px; z-index: 100; pointer-events: none;">
         <h2 id="view-title" style="color: white; text-shadow: 0 0 10px #000; margin:0; font-size: 1.5em;">지구 (Earth)</h2>
-        <p id="view-meta" style="color: var(--accent); font-size: 0.8em; margin: 5px 0;">NASA 고해상도 텍스처 연결됨</p>
+        <p id="view-meta" style="color: var(--accent); font-size: 0.8em; margin: 5px 0;"></p>
     </div>
     <div id="canvas-container"></div>
 </div>
@@ -308,7 +311,7 @@ select option, select.mi option { background: #1e2130; color: #fff; }
 
     <div class="control-group" style="flex-grow: 1; display: flex; flex-direction: column;">
         <label>📝 관찰 일지 작성</label>
-        <textarea id="student-log" placeholder="3D 화면을 돌려보며 표면 특징을 상세히 기록하세요. 달은 위상 원리를, 태양은 흑점·홍염의 위치를 기록하세요."></textarea>
+        <textarea id="student-log" placeholder="3D 화면을 돌려보며 표면 특징을 상세히 기록하세요. 달은 위상 원리를, 태양은 흑점·홍염의 위치를 기록하세요. (✋ 이름은 쓰지 않아요)"></textarea>
         <button class="btn-submit" id="submit-log-btn" onclick="submitLog()">AI 가이드 피드백 받기</button>
         <p class="qr-notice" style="display:none;font-size:0.75em;color:#888;margin:6px 0 0;text-align:center;line-height:1.5">선생님이 주신 QR이나 링크로 들어오면<br>AI 피드백을 받을 수 있어요</p>
         <div id="ai-response"></div>
@@ -358,6 +361,9 @@ select option, select.mi option { background: #1e2130; color: #fff; }
 
     let currentUser=null, teacherUid=null, isStudentMode=false;
     let stuName='', stuClass='';
+let stuClassNo='', stuNo=0, stuDisplay='', stuKey='';   // 학생 구분은 반 + 번호 (공통규칙 4-3, 2026-09-25) — 이름은 가려서 표시만
+function maskName(n){ n=String(n||'').trim(); return n ? n.charAt(0)+'*'.repeat(Math.max(1,Math.min(n.length-1,3))) : ''; }
+function normalizeClassNo(v){ const s=String(v||'').replace(/\s/g,''); const m=s.match(/^(\d{1,2})(?:학년|-|\.|\/)?(\d{1,2})반?$/); return m ? `${parseInt(m[1],10)}-${parseInt(m[2],10)}` : s; }
     let settings = { apiKey:'', classOn:false };
     let groups=[];
     let unsubSettings=null, unsubGroups=null;
@@ -376,7 +382,7 @@ select option, select.mi option { background: #1e2130; color: #fff; }
       afterMutoMoodFn = nextFn;
       const img = document.getElementById('mutoImg'); if(img) img.src = MUTO_IMG;
       const q = document.getElementById('mutoQuestionText');
-      if(q) q.textContent = (stuName ? stuName+'님, ' : '') + '오늘 기분이 어때요?';
+      if(q) q.textContent = (stuNo ? stuNo+'번 친구, ' : '') + '오늘 기분이 어때요?';
       const box = document.getElementById('mutoEncourageBox'); if(box){ box.style.display='none'; box.textContent=''; }
       const btn = document.getElementById('mutoContinueBtn'); if(btn) btn.style.display='none';
       const choices = document.getElementById('mutoMoodChoices');
@@ -408,15 +414,43 @@ select option, select.mi option { background: #1e2130; color: #fff; }
       return { teacher: p.get('teacher') || (typeof teacherUid !== 'undefined' && teacherUid) || '', demo: p.get('demo') || '' };
     }
     async function callAI(payload){
+      // 혼잡(500·502·503)이면 두 번까지 자동으로 다시 시도한다 (공통규칙 6-3, 2026-09-25)
       const { teacher, demo } = aiParams();
-      const res = await fetch('api/ai', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(Object.assign({ teacher, demo }, payload))
-      });
-      const data = await res.json().catch(()=>({ error:{ message:'AI 서버 응답을 읽지 못했어요.' } }));
-      if(data.error) throw new Error(data.error.message || 'AI 오류');
-      return data;
+      let lastErr = null;
+      for(let i=0;i<3;i++){
+        let res;
+        try{
+          res = await fetch('api/ai', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify(Object.assign({ teacher, demo }, payload))
+          });
+        }catch(e){ throw new Error('인터넷 연결을 확인해 주세요.'); }
+        const data = await res.json().catch(()=>({ error:{ message:'AI 서버 응답을 읽지 못했어요.' } }));
+        if(!data.error) return data;
+        lastErr = new Error(data.error.message || 'AI 오류');
+        if(![500,502,503].includes(res.status) || i===2) break;
+        await new Promise(r=>setTimeout(r, 1500*(i+1)));
+      }
+      throw lastErr;
     }
+    // 공통규칙 6-3: 프롬프트에 "마크다운 쓰지 말 것"을 넣고, 결과에서 한 번 더 지운다. (2026-09-25)
+    const NO_MARKDOWN = '\n\n[출력 규칙] 마크다운(별표 **, #, -, ``` 등)을 쓰지 말고 평범한 문장으로만 써줘.';
+    function stripMarkdown(t){
+      return String(t||'')
+        .replace(/```[a-z]*\n?/gi,'')
+        .replace(/\*\*(.+?)\*\*/g,'$1').replace(/__(.+?)__/g,'$1')
+        .replace(/(^|[^*])\*(?!\s)([^*\n]+?)\*(?!\*)/g,'$1$2')
+        .replace(/^#{1,6}\s+/gm,'')
+        .replace(/^\s*[-*•]\s+/gm,'· ')
+        .replace(/`([^`]+)`/g,'$1')
+        .trim();
+    }
+
+// 공통규칙 10-1: 기기 저장 이름에 eaim_science_ 앞머리 — 예전 이름(eaim_observatory_logs)의 기록은 한 번 옮겨 둔다 (2026-09-25)
+(function(){ try{ const o='eaim_observatory_logs', n='eaim_science_observatory_logs';
+  if(localStorage.getItem(n)===null && localStorage.getItem(o)!==null){ localStorage.setItem(n, localStorage.getItem(o)); localStorage.removeItem(o); }
+}catch(e){} })();
+
     function isGuestMode(){
       const p = new URLSearchParams(location.search);
       if(p.get('teacher') || p.get('demo')) return false;
@@ -604,6 +638,19 @@ select option, select.mi option { background: #1e2130; color: #fff; }
       document.getElementById('sNBtn').disabled = !settings.classOn;
       populateClassSelect();
     }
+    // ══════════════════════════
+    // 공개 화면 (2026-09-25 선생님 결정: 과학 활동 앱은 공개, AI 쓰기는 수업에서만)
+    //  링크 없이 들어오면 로그인 창 없이 바로 관찰 화면. AI 미션·기록은 손님 잠금(applyGuestLock)으로 막힌다.
+    //  선생님은 왼쪽 아래 "👩‍🏫 선생님" 버튼으로 로그인·대시보드에 들어간다.
+    // ══════════════════════════
+    function enterPublicView(){
+      if(!currentUser){ teacherUid = null; applyGuestLock(); }   // 로그아웃 뒤에도 선생님 AI가 남지 않게
+      enterMainApp();
+      const b = document.getElementById('teacherEntryBtn'); if(b) b.style.display = 'block';
+    }
+    function openTeacherEntry(){
+      if(currentUser) enterTeacherDashboard(); else renderTeacherGoogleGate();
+    }
     function enterMainApp(){
       hideAllOverlays();
       document.getElementById('mainApp').style.display='flex';
@@ -669,16 +716,20 @@ select option, select.mi option { background: #1e2130; color: #fff; }
     }
     function studentLogout(){
       if(unsubSettings){unsubSettings();unsubSettings=null;}
-      stuName=''; stuClass='';
+      stuName=''; stuClass=''; stuClassNo=''; stuNo=0; stuDisplay=''; stuKey='';
       renderStudentLoginGate();
     }
     function sN(){
       const n=document.getElementById('sni').value.trim();
+  const cn=normalizeClassNo(document.getElementById('sclassno').value);
+  const no=parseInt(document.getElementById('sno').value,10);
       const c=document.getElementById('sclass').value;
       if(!settings.classOn){alert('선생님이 아직 수업을 열지 않았어요');return;}
-      if(!n){alert('이름을 입력해주세요!');return;}
+      if(!cn){alert('반을 적어 주세요! (예: 1학년 3반 → 1-3)');return;}
+  if(!(no>=1&&no<=99)){alert('번호를 숫자로 적어 주세요!');return;}
       if(!c){alert('반/모둠을 선택해주세요!');return;}
-      stuName=n; stuClass=c;
+      stuClassNo=cn; stuNo=no; stuDisplay=maskName(n); stuKey=`${cn}-${String(no).padStart(2,'0')}`;
+  stuName=`${cn} ${no}번${stuDisplay?' '+stuDisplay:''}`; stuClass=c;   // 화면·기록 표시용 이름표
       showMutoMoodCheck(enterMainApp);
     }
 
@@ -696,18 +747,31 @@ select option, select.mi option { background: #1e2130; color: #fff; }
     let loader;
     let gasTexture;
 
-    const textures = {
-        earth: "https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/earthmap1k.jpg",
-        moon: "https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/moonmap1k.jpg",
-        mars: "https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/marsmap1k.jpg",
-        jupiter: "https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/jupitermap.jpg",
-        saturn: "https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/saturnmap.jpg",
-        venus: "https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/venusmap.jpg",
-        mercury: "https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/mercurymap.jpg",
-        uranus: "https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/uranusmap.jpg",
-        neptune: "https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/neptunemap.jpg",
-        saturn_ring: "https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/saturnringcolor.jpg"
-    };
+    const textures = {   // 저장소 안 파일(공통규칙 3번: 외부 이미지 링크 금지). 출처는 TEX_CREDIT 참고 (2026-09-25)
+  mercury: "textures/planets/mercury.jpg",
+  venus: "textures/planets/venus.jpg",
+  earth: "textures/planets/earth.jpg",
+  mars: "textures/planets/mars.jpg",
+  jupiter: "textures/planets/jupiter.jpg",
+  saturn: "textures/planets/saturn.jpg",
+  saturn_ring: "textures/planets/saturn-ring.png",
+  uranus: "textures/planets/uranus.jpg",
+  neptune: "textures/planets/neptune.jpg",
+  moon: "textures/planets/moon.jpg"
+};
+// 그림 출처 — 사진이 아닌 것은 아니라고 적는다(공통규칙 3번 사실 정확성)
+const TEX_CREDIT = {
+  mercury: "수성: 사진 아님 — 회색 표면과 크레이터를 그린 그림",
+  venus: "금성: NASA 마젤란 레이더 지도(두꺼운 구름 아래 땅 모양, 실제 색 아님)",
+  earth: "지구: NASA 블루 마블(Visible Earth)",
+  mars: "화성: NASA 3D Resources 지도",
+  jupiter: "목성: NASA 3D Resources 지도",
+  saturn: "토성: NASA 3D Resources 지도",
+  saturn_ring: "토성 고리: 사진 아님 — 실제 고리 구조(C·B·카시니 간극·A) 비율로 그린 그림",
+  uranus: "천왕성: 사진 아님 — 보이저 2호가 본 청록색을 거의 단색으로 표현",
+  neptune: "해왕성: NASA 3D Resources 지도",
+  moon: "달: NASA LRO(달 정찰 궤도선) 광각카메라 모자이크"
+};
 
     function initThree(){
         container = document.getElementById('canvas-container');
@@ -911,7 +975,8 @@ select option, select.mi option { background: #1e2130; color: #fff; }
         if (isSun) {
             document.getElementById('view-meta').innerHTML = "NASA SDO 데이터 기반 시뮬레이션";
         } else {
-            document.getElementById('view-meta').innerHTML = "NASA 고해상도 텍스처 연결됨";
+            // 그림 출처를 그대로 보여 준다(사진이 아닌 것은 아니라고) — 2026-09-25
+            document.getElementById('view-meta').textContent = (TEX_CREDIT[target] || "") + (target === 'saturn' ? " · " + TEX_CREDIT.saturn_ring : "");
         }
 
         directionalLight.position.set(5, 3, 5);
@@ -991,7 +1056,7 @@ select option, select.mi option { background: #1e2130; color: #fff; }
         if(!logText) return alert("관찰 내용을 먼저 기록해 주세요!");
 
         respDiv.style.display = 'block';
-        respDiv.innerHTML = "📡 제미나이 2.5 플래시 엔진이 기록을 분석 중입니다...";
+        respDiv.textContent = "📡 AI 선생님이 기록을 분석 중입니다...";
 
         const obsDate = document.getElementById('obs-date').value;
         const obsLoc = document.getElementById('obs-location').value;
@@ -1005,14 +1070,17 @@ select option, select.mi option { background: #1e2130; color: #fff; }
         try {
             const data = await callAI({
                 model: 'text',
-                contents: [{ parts: [{ text: prompt }] }],
+                contents: [{ parts: [{ text: prompt + NO_MARKDOWN }] }],
                 generationConfig: { temperature: 0.7, maxOutputTokens: 1024 }
             });
-            const feedbackText = data.candidates[0].content.parts[0].text;
-            respDiv.innerHTML = feedbackText.replace(/\n/g, '<br>');
+            const feedbackText = stripMarkdown(data.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('') || '');
+            if(!feedbackText) throw new Error('AI가 빈 답을 보냈어요. 한 번 더 눌러 주세요.');
+            // AI 글은 글자로만 넣는다(태그로 해석하지 않게). 줄바꿈은 CSS로 살린다.
+            respDiv.style.whiteSpace = 'pre-wrap';
+            respDiv.textContent = feedbackText;
             saveToStorage(targetName, logText, feedbackText);
         } catch(e) {
-            respDiv.innerHTML = `❌ 분석 엔진 연결 오류: ${e.message}`;
+            respDiv.textContent = `❌ AI 연결 오류: ${e.message}`;
         }
     }
 
@@ -1021,21 +1089,21 @@ select option, select.mi option { background: #1e2130; color: #fff; }
         const date = document.getElementById('obs-date').value;
         const loc = document.getElementById('obs-location').value;
         const log = { target, logText, date, loc };
-        let logs = JSON.parse(localStorage.getItem('eaim_observatory_logs') || "[]");
+        let logs = JSON.parse(localStorage.getItem('eaim_science_observatory_logs') || "[]");
         logs.unshift(log);
-        localStorage.setItem('eaim_observatory_logs', JSON.stringify(logs));
+        localStorage.setItem('eaim_science_observatory_logs', JSON.stringify(logs));
         renderLogs();
 
         if(teacherUid && stuName){
             obsLogsColRef(teacherUid).add({
-                name: stuName, group: stuClass||'',
+                name: stuName, group: stuClass||'', classNo: stuClassNo, studentNo: stuNo, displayName: stuDisplay,
                 target, logText, feedback: feedbackText||'',
                 date, loc,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             }).catch(e=>console.warn('관측 기록 저장 실패', e));
 
-            studentsColRef(teacherUid).doc(stuName.trim()).set({
-                name: stuName, group: stuClass||'',
+            studentsColRef(teacherUid).doc(stuKey)   /* 반-번호 (이름으로 문서 이름을 만들지 않음) */.set({
+                name: stuName, group: stuClass||'', classNo: stuClassNo, studentNo: stuNo, displayName: stuDisplay,
                 lastTarget: target,
                 logCount: firebase.firestore.FieldValue.increment(1),
                 updatedAt: new Date().toLocaleString('ko-KR')
@@ -1045,7 +1113,7 @@ select option, select.mi option { background: #1e2130; color: #fff; }
 
     function renderLogs() {
         if(isGuestMode()) return;
-        const logs = JSON.parse(localStorage.getItem('eaim_observatory_logs') || "[]");
+        const logs = JSON.parse(localStorage.getItem('eaim_science_observatory_logs') || "[]");
         const listDiv = document.getElementById('log-list');
         listDiv.innerHTML = logs.map(l => `
             <div class="log-item">
@@ -1218,10 +1286,11 @@ select option, select.mi option { background: #1e2130; color: #fff; }
                 releaseGuestLock();
                 subscribeSettings(teacherUid, ()=>{ enterTeacherDashboard(); });
             } else {
-                renderTeacherGoogleGate();
+                enterPublicView();   // 공개 화면 (예전: 교사 로그인 창이 화면을 덮었음)
             }
         });
     })();
 </script>
+<button id="teacherEntryBtn" type="button" onclick="openTeacherEntry()" style="display:none;position:fixed;left:10px;bottom:10px;z-index:250;padding:6px 11px;border-radius:9px;border:1px solid rgba(148,163,184,.45);background:rgba(15,23,42,.72);color:#e2e8f0;font-size:.72rem;cursor:pointer">👩‍🏫 선생님</button>
 </body>
 </html>

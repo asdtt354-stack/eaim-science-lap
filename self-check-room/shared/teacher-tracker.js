@@ -5,6 +5,8 @@
      결과가 실시간 전송된다.
    - 선생님 QR로 들어온 적이 없으면(t 파라미터가 한 번도 없었으면)
      기록 전송은 조용히 건너뛴다 — 개인 학습용으로만 써도 문제없음.
+   - 학생 구분은 반 + 번호(공통규칙 4-3). 피드백 조회도 반 + 번호로 한다(이름으로 찾지 않음, 5-2).
+     2026-09-25 변경 — 예전 기록(studentName만 있는 것)은 대시보드에 그대로 보인다.
    ──────────────────────────────────────────────── */
 (function () {
   const FIREBASE_CONFIG = {
@@ -15,7 +17,12 @@
     messagingSenderId: "294479576192",
     appId: "1:294479576192:web:c60e994e319dbd2f11ba65"
   };
-  const TEACHER_KEY = 'eaim_teacher_uid';
+  const TEACHER_KEY = 'eaim_science_teacher_uid';   // 공통규칙 10-1: eaim_science_ 앞머리
+  try {                                              // 예전 이름(eaim_teacher_uid)은 한 번 옮긴다
+    const old = localStorage.getItem('eaim_teacher_uid');
+    if (old && !localStorage.getItem(TEACHER_KEY)) localStorage.setItem(TEACHER_KEY, old);
+    localStorage.removeItem('eaim_teacher_uid');
+  } catch (e) {}
   let db = null, ready = false;
 
   try {
@@ -55,19 +62,24 @@
     return true;
   }
 
-  function getStudentName() {
-    if (window.EAIM && typeof window.EAIM.getStudentName === 'function') {
-      return window.EAIM.getStudentName();
+  function getStudentInfo() {
+    if (window.EAIM && typeof window.EAIM.getStudentInfo === 'function') {
+      return window.EAIM.getStudentInfo();
     }
-    return '이름 미입력';
+    return { classNo: '', studentNo: 0, displayName: '' };
   }
 
   async function submitScienceResult({ subject, unitKey, unitLabel, correct, total, weakTopics, writtenAnswers }) {
     const uid = getTeacherUid();
     if (!uid || !ready) return false;
+    const me = getStudentInfo();
+    if (!me.classNo || !me.studentNo) { alert('반과 번호를 먼저 적어 주세요.'); return false; }
     try {
       await db.collection('teachers').doc(uid).collection('scienceRecords').add({
-        studentName: getStudentName(),
+        platform: 'science',
+        classNo: me.classNo,
+        studentNo: me.studentNo,
+        displayName: me.displayName || '',
         subject: subject || '',
         unitKey: unitKey || '',
         unitLabel: unitLabel || '',
@@ -100,13 +112,15 @@
     }
   }
 
-  // 학생용: 내 이름으로 온 선생님 피드백을 실시간으로 구독한다.
+  // 학생용: 내 반·번호로 온 선생님 피드백을 실시간으로 구독한다. (이름 검색 금지 — 공통규칙 5-2)
   function subscribeMyFeedback(cb) {
     const uid = getTeacherUid();
     if (!uid || !ready) { cb([]); return null; }
-    const name = getStudentName();
+    const me = getStudentInfo();
+    if (!me.classNo || !me.studentNo) { cb([]); return null; }
     return db.collection('teachers').doc(uid).collection('scienceRecords')
-      .where('studentName', '==', name)
+      .where('classNo', '==', me.classNo)
+      .where('studentNo', '==', me.studentNo)
       .onSnapshot(snap => {
         const list = snap.docs
           .map(d => ({ id: d.id, ...d.data() }))

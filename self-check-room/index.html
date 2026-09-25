@@ -43,6 +43,7 @@
   .qr-modal-box #qrcodeCanvas { background:#fff; padding:14px; border-radius:16px; display:inline-block; }
   .qr-modal-box .qr-url { margin-top:18px; font-size:0.72em; color:#777; word-break:break-all; }
 </style>
+<style>/* 공통규칙 3번: 한글 줄바꿈 — 단어 중간에서 끊지 않기 */ body{word-break:keep-all;overflow-wrap:break-word;}</style>
 </head>
 <body>
 
@@ -115,6 +116,6 @@ function closeQR(){
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="shared/teacher-tracker.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="../lib/qrcode.min.js"></script>
 </body>
 </html>
