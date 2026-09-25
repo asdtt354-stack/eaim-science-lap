@@ -158,6 +158,9 @@
     .card .corner.tr{ top:9px; right:9px; border-top:2px solid; border-right:2px solid; border-radius:0 3px 0 0; }
     .card .corner.bl{ bottom:9px; left:9px; border-bottom:2px solid; border-left:2px solid; border-radius:0 0 0 3px; }
     .card .corner.br{ bottom:9px; right:9px; border-bottom:2px solid; border-right:2px solid; border-radius:0 0 3px 0; }
+    /* 카드 안 글자를 번호 → 아이콘 → 제목 → 설명 → 상태 순서로 한 줄씩 (2026-09-25: 컴퓨터 화면에서 뒤섞이던 문제) */
+    .card > div.card-body{ display:flex; flex-direction:column; align-items:center; text-align:center; width:100%; flex:1; position:relative; z-index:2; word-break:keep-all; }
+    .card .module-id{ white-space:nowrap; letter-spacing:0.02em; }
 
     .card .module-id{
         font-family:'JetBrains Mono',monospace; font-size:0.62rem; letter-spacing:0.08em;
@@ -198,7 +201,7 @@
     @media (max-width: 460px){
         .card{ flex:0 0 100%; max-width:100%; flex-direction:row; text-align:left; min-height:0; padding:16px 16px 16px 18px; }
         .card .icon{ margin-bottom:0; margin-right:14px; font-size:2rem; }
-        .card > div.card-body{ display:flex; flex-direction:column; flex:1; }
+        .card > div.card-body{ display:flex; flex-direction:column; flex:1; align-items:flex-start; text-align:left; }
         .card .foot{ margin-top:8px; }
         .card .corner{ display:none; }
         .flex-container{ gap:12px; }
