@@ -195,6 +195,7 @@ select option, select.mi option { background: #1e2130; color: #fff; }
       <p style="font-size:.68rem;color:#94a3b8;margin:4px 0 10px;line-height:1.5;text-align:left">키는 학생 기기로 내려가지 않고 서버(AI 중계)에서만 쓰여요. 키에는 <b>API 제한(Generative Language API)</b>과 <b>하루 한도</b>만 걸고, 웹사이트 제한은 걸지 마세요.</p>
     </div>
     <button class="btn-primary bfl" style="margin-bottom:10px;background:rgba(0,212,255,0.12);border:1.5px solid rgba(0,212,255,0.35);color:var(--accent)" onclick="openStudentStatus()">📊 학생 활동 현황 보기</button>
+    <button class="btn-primary bg2 bfl" style="margin-bottom:10px" onclick="goAppAsTeacher()">🔭 관찰 화면으로 (선생님 로그인 유지)</button>
     <button class="btn-primary bg2 bfl" onclick="teacherLogout()">로그아웃</button>
   </div>
 </div>
@@ -350,7 +351,8 @@ select option, select.mi option { background: #1e2130; color: #fff; }
     let db=null, auth=null, firebaseReady=false;
     try{
       firebase.initializeApp(FIREBASE_CONFIG);
-      db=firebase.firestore(); auth=firebase.auth(); firebaseReady=true;
+      db=firebase.firestore(); auth=firebase.auth(); auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(()=>{});   // 공통규칙 4-2: 브라우저를 닫으면 로그아웃(공용 PC 보호)
+  firebaseReady=true;
     }catch(e){ console.error('Firebase 초기화 실패', e); firebaseReady=false; }
 
     const teacherDocRef  = (uid) => db.collection('teachers').doc(uid);
@@ -648,6 +650,7 @@ function normalizeClassNo(v){ const s=String(v||'').replace(/\s/g,''); const m=s
       enterMainApp();
       const b = document.getElementById('teacherEntryBtn'); if(b) b.style.display = 'block';
     }
+    function goAppAsTeacher(){ enterMainApp(); const b=document.getElementById('teacherEntryBtn'); if(b) b.style.display='block'; }   // 대시보드 → 관찰 화면 (2026-09-25)
     function openTeacherEntry(){
       if(currentUser) enterTeacherDashboard(); else renderTeacherGoogleGate();
     }
@@ -704,15 +707,21 @@ function normalizeClassNo(v){ const s=String(v||'').replace(/\s/g,''); const m=s
       new QRCode(el, { text:url, width:140, height:140, colorDark:'#050508', colorLight:'#ffffff', correctLevel:QRCode.CorrectLevel.M });
     }
     function googleLogin(){
+      // 공통규칙 4-2: 항상 계정 선택 창, 팝업이 막히면 리디렉션 로그인 (2026-09-25)
       const provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider).catch(e=>{ document.getElementById('googleLoginErr').textContent='로그인 실패: '+e.message; });
+      provider.setCustomParameters({ prompt: 'select_account' });
+      auth.signInWithPopup(provider).catch(e=>{
+        if(e && (e.code==='auth/popup-blocked' || e.code==='auth/operation-not-supported-in-this-environment')){ auth.signInWithRedirect(provider); return; }
+        if(e && (e.code==='auth/popup-closed-by-user' || e.code==='auth/cancelled-popup-request')) return;
+        document.getElementById('googleLoginErr').textContent='로그인 실패: '+e.message;
+      });
     }
     function teacherLogout(){
       if(unsubSettings){unsubSettings();unsubSettings=null;}
       if(unsubGroups){unsubGroups();unsubGroups=null;}
       if(unsubStudents){unsubStudents();unsubStudents=null;}
       auth.signOut(); teacherUid=null;
-      renderTeacherGoogleGate();
+      enterPublicView();   // 로그아웃하면 공개 관찰 화면으로
     }
     function studentLogout(){
       if(unsubSettings){unsubSettings();unsubSettings=null;}

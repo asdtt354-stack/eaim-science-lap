@@ -190,7 +190,8 @@
     let db=null, auth=null, firebaseReady=false;
     try{
       firebase.initializeApp(FIREBASE_CONFIG);
-      db=firebase.firestore(); auth=firebase.auth(); firebaseReady=true;
+      db=firebase.firestore(); auth=firebase.auth(); auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(()=>{});   // 공통규칙 4-2: 브라우저를 닫으면 로그아웃(공용 PC 보호)
+  firebaseReady=true;
     }catch(e){ console.error('Firebase 초기화 실패', e); firebaseReady=false; }
 
     const teacherDocRef  = (uid) => db.collection('teachers').doc(uid);
@@ -505,8 +506,14 @@ function normalizeClassNo(v){ const s=String(v||'').replace(/\s/g,''); const m=s
       new QRCode(el, { text:url, width:140, height:140, colorDark:'#4338ca', colorLight:'#ffffff', correctLevel:QRCode.CorrectLevel.M });
     }
     function googleLogin(){
+      // 공통규칙 4-2: 항상 계정 선택 창, 팝업이 막히면 리디렉션 로그인 (2026-09-25)
       const provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider).catch(e=>{ document.getElementById('googleLoginErr').textContent='로그인 실패: '+e.message; });
+      provider.setCustomParameters({ prompt: 'select_account' });
+      auth.signInWithPopup(provider).catch(e=>{
+        if(e && (e.code==='auth/popup-blocked' || e.code==='auth/operation-not-supported-in-this-environment')){ auth.signInWithRedirect(provider); return; }
+        if(e && (e.code==='auth/popup-closed-by-user' || e.code==='auth/cancelled-popup-request')) return;
+        document.getElementById('googleLoginErr').textContent='로그인 실패: '+e.message;
+      });
     }
     function teacherLogout(){
       if(unsubSettings){unsubSettings();unsubSettings=null;}

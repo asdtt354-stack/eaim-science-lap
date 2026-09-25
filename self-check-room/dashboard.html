@@ -180,6 +180,7 @@ const FIREBASE_CONFIG = {
 };
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
+auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(()=>{});   // 공통규칙 4-2: 브라우저를 닫으면 로그아웃
 const db = firebase.firestore();
 
 let teacherUid = null;
@@ -188,8 +189,14 @@ let unsub = null;
 let currentQrUrl = '';
 
 function doLogin(){
+  // 공통규칙 4-2: 항상 계정 선택 창, 팝업이 막히면 리디렉션 로그인
   const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider).catch(e => alert('로그인 실패: ' + e.message));
+  provider.setCustomParameters({ prompt: 'select_account' });
+  auth.signInWithPopup(provider).catch(e => {
+    if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) { auth.signInWithRedirect(provider); return; }
+    if (e && (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request')) return;
+    alert('로그인 실패: ' + e.message);
+  });
 }
 
 auth.onAuthStateChanged(user => {
