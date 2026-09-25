@@ -1,0 +1,14 @@
+행성 그림 출처 (2026-09-25)  — 공통규칙 3번: 외부 이미지 링크 대신 저장소 안 파일 사용
+
+earth.jpg    NASA Earth Observatory, Blue Marble: Next Generation (2004년 12월, 지형·해저지형) — 퍼블릭 도메인
+moon.jpg     NASA LRO 광각카메라(WAC) 달 전체 모자이크로 보이는 지도 (globe.gl 예제에 들어 있는 lunar_surface.jpg를 줄임)
+venus.jpg    NASA 3D Resources (github.com/nasa/NASA-3D-Resources) — 마젤란 레이더 지표 지도, 실제 색 아님
+mars.jpg     NASA 3D Resources
+jupiter.jpg  NASA 3D Resources
+saturn.jpg   NASA 3D Resources
+neptune.jpg  NASA 3D Resources
+mercury.jpg      사진 아님 — 회색 표면과 크레이터를 코드로 그림
+uranus.jpg       사진 아님 — 청록색 거의 단색
+saturn-ring.png  사진 아님 — 고리 구조(C 1.24~1.53, B 1.53~1.95, 카시니 간극 1.95~2.03, A 2.03~2.27, 토성 반지름=1) 비율로 그림
+
+NASA 자료 사용 원칙: NASA 로고를 쓰지 않고, NASA가 이 앱을 보증하는 것처럼 표현하지 않는다.
