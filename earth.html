@@ -222,7 +222,12 @@ textarea { width: 100%; height: 80px; background: #1a1a1c; color: white; border:
   #mainApp { flex-direction: column; height: auto; }
   #viewer-section { width: 100%; height: 58vh; flex: none; }
   .header h1 { font-size: 1.4em; }
-  .control-panel { width: calc(100% - 48px); left: 24px; right: 24px; }
+  /* 휴대폰: 조작판이 단면 그림을 덮지 않게 그림 아래로 내림 (2026-09-25) — 되돌리지 않기 */
+  #viewer-section { height: auto; }
+  #cross-section-viewport { position: relative; inset: auto; height: 52vh; }
+  #depth-marker-line, #depth-marker { top: 26vh; }
+  #event-fx-layer { bottom: auto; height: 52vh; }
+  .control-panel { position: relative; left: auto; right: auto; bottom: auto; width: auto; margin: 12px; max-height: none; }
   #info-popup { top: 62px; left: 12px; right: 12px; width: auto; }
   #log-section { width: 100%; max-width: 100%; min-width: 100%; height: auto; flex: none; border-left: none; border-top: 2px solid var(--accent); }
 }
@@ -491,7 +496,7 @@ select option, select.mi option { background: #1e2130; color: #fff; }
   <p class="sub-text">지금 도달한 층을 바탕으로 AI가 질문을 만들어줘요.</p>
   <div class="mission-box">
     <label id="mission-box-label">🔬 지금 층 질문받기</label>
-    <p style="font-size:0.7em;color:#888;margin:-2px 0 10px" id="mission-box-sub">왼쪽에서 드릴/잠수정으로 원하는 층까지 내려가보세요.</p>
+    <p style="font-size:0.7em;color:#888;margin:-2px 0 10px" id="mission-box-sub">드릴/잠수정으로 원하는 층까지 내려가 보세요.</p>
     <button class="btn-primary" onclick="generateEarthMission()" id="earth-mission-btn">🔬 탐사 질문 받기</button>
     <p class="qr-notice" style="display:none;font-size:0.72em;color:#888;margin:6px 0 0;text-align:center;line-height:1.5">선생님이 주신 QR이나 링크로 들어오면<br>AI 탐사 질문을 받을 수 있어요</p>
   </div>
@@ -2073,6 +2078,7 @@ function renderLogs(){
   });
 })();
 </script>
+<style>@media (max-width: 850px){ #teacherEntryBtn{ position:absolute !important; top:8px !important; bottom:auto !important; left:8px !important; opacity:.85; } }</style>
 <button id="teacherEntryBtn" type="button" onclick="openTeacherEntry()" style="display:none;position:fixed;left:10px;bottom:10px;z-index:250;padding:6px 11px;border-radius:9px;border:1px solid rgba(148,163,184,.45);background:rgba(15,23,42,.72);color:#e2e8f0;font-size:.72rem;cursor:pointer">👩‍🏫 선생님</button>
 </body>
 </html>
